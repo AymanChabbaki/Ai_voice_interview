@@ -26,6 +26,7 @@ import {
   History,
   Timer,
   LogOut,
+  LogIn,
   User,
   Star,
   Medal,
@@ -116,6 +117,7 @@ function App() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showDashboard, setShowDashboard] = useState(true);
   const [currentPage, setCurrentPage] = useState('home'); // 'home', 'dashboard', 'interview'
+  const [showAuth, setShowAuth] = useState(false);
 
   // Check authentication on mount
   useEffect(() => {
@@ -168,6 +170,8 @@ function App() {
       setIsAuthenticated(true);
       loadUserProfile(data.user.user_id);
       setAuthForm({ username: '', email: '', password: '', name: '', bio: '', experience_level: 'Beginner' });
+      setShowAuth(false);
+      setCurrentPage('dashboard');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -205,6 +209,8 @@ function App() {
       setIsAuthenticated(true);
       loadUserProfile(data.user.user_id);
       setAuthForm({ username: '', email: '', password: '', name: '', bio: '', experience_level: 'Beginner' });
+      setShowAuth(false);
+      setCurrentPage('dashboard');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -274,6 +280,14 @@ function App() {
     loadCategories();
     loadUserProfile();
   }, []);
+
+  // Protect dashboard and interview pages - require authentication
+  useEffect(() => {
+    if (!isAuthenticated && (currentPage === 'dashboard' || currentPage === 'interview')) {
+      setShowAuth(true);
+      setCurrentPage('home');
+    }
+  }, [currentPage, isAuthenticated]);
 
   // Timer for questions
   useEffect(() => {
@@ -572,156 +586,6 @@ function App() {
     }
   };
 
-  // Show auth screen if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="app">
-        <div className="auth-container">
-          <div className="auth-card">
-            <div className="auth-header">
-              <Brain size={50} className="auth-icon" />
-              <h1>Smart Voice Interviewer</h1>
-              <p>AI-Powered Interview System</p>
-            </div>
-
-            {error && (
-              <div className="error-message">
-                <AlertCircle size={20} />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <div className="auth-tabs">
-              <button 
-                className={authMode === 'login' ? 'active' : ''}
-                onClick={() => { setAuthMode('login'); setError(null); }}
-              >
-                Login
-              </button>
-              <button 
-                className={authMode === 'register' ? 'active' : ''}
-                onClick={() => { setAuthMode('register'); setError(null); }}
-              >
-                Register
-              </button>
-            </div>
-
-            {authMode === 'login' ? (
-              <form onSubmit={handleLogin} className="auth-form">
-                <div className="form-group">
-                  <label>Username</label>
-                  <input
-                    type="text"
-                    value={authForm.username}
-                    onChange={(e) => setAuthForm({ ...authForm, username: e.target.value })}
-                    required
-                    placeholder="Enter your username"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Password</label>
-                  <input
-                    type="password"
-                    value={authForm.password}
-                    onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-                    required
-                    placeholder="Enter your password"
-                  />
-                </div>
-                <button type="submit" className="auth-submit" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 size={20} className="spin" />
-                      <span>Logging in...</span>
-                    </>
-                  ) : (
-                    'Login'
-                  )}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleRegister} className="auth-form">
-                <div className="form-group">
-                  <label>Username *</label>
-                  <input
-                    type="text"
-                    value={authForm.username}
-                    onChange={(e) => setAuthForm({ ...authForm, username: e.target.value })}
-                    required
-                    placeholder="Choose a username"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Email *</label>
-                  <input
-                    type="email"
-                    value={authForm.email}
-                    onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-                    required
-                    placeholder="your.email@example.com"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Password *</label>
-                  <input
-                    type="password"
-                    value={authForm.password}
-                    onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-                    required
-                    minLength="6"
-                    placeholder="At least 6 characters"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Full Name *</label>
-                  <input
-                    type="text"
-                    value={authForm.name}
-                    onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
-                    required
-                    placeholder="Your full name"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Bio</label>
-                  <textarea
-                    value={authForm.bio}
-                    onChange={(e) => setAuthForm({ ...authForm, bio: e.target.value })}
-                    placeholder="Tell us about yourself..."
-                    rows="3"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Experience Level *</label>
-                  <select
-                    value={authForm.experience_level}
-                    onChange={(e) => setAuthForm({ ...authForm, experience_level: e.target.value })}
-                    required
-                  >
-                    <option value="Beginner">Beginner</option>
-                    <option value="Intermediate">Intermediate</option>
-                    <option value="Advanced">Advanced</option>
-                    <option value="Expert">Expert</option>
-                  </select>
-                </div>
-                <button type="submit" className="auth-submit" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 size={20} className="spin" />
-                      <span>Creating account...</span>
-                    </>
-                  ) : (
-                    'Register'
-                  )}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="app">
       <header className="header">
@@ -767,24 +631,36 @@ function App() {
                 </button>
               </>
             )}
-            <button 
-              className="profile-button"
-              onClick={() => setShowProfile(true)}
-              title="User Profile"
-            >
-              {userProfile ? (
-                <span className="profile-avatar">{userProfile.name.charAt(0).toUpperCase()}</span>
-              ) : (
-                <User size={20} />
-              )}
-            </button>
-            <button 
-              className="logout-button"
-              onClick={handleLogout}
-              title="Logout"
-            >
-              <LogOut size={20} />
-            </button>
+            {isAuthenticated ? (
+              <>
+                <button 
+                  className="profile-button"
+                  onClick={() => setShowProfile(true)}
+                  title="User Profile"
+                >
+                  {userProfile ? (
+                    <span className="profile-avatar">{userProfile.name.charAt(0).toUpperCase()}</span>
+                  ) : (
+                    <User size={20} />
+                  )}
+                </button>
+                <button 
+                  className="logout-button"
+                  onClick={handleLogout}
+                  title="Logout"
+                >
+                  <LogOut size={20} />
+                </button>
+              </>
+            ) : (
+              <button 
+                className="btn btn-primary btn-small"
+                onClick={() => setShowAuth(true)}
+              >
+                <LogIn size={18} />
+                Login
+              </button>
+            )}
             <div className={`api-status status-${apiStatus}`}>
               {apiStatus === 'connected' ? (
                 <>
@@ -853,7 +729,10 @@ function App() {
                     </>
                   ) : (
                     <>
-                      <button className="btn btn-primary btn-large">
+                      <button 
+                        className="btn btn-primary btn-large"
+                        onClick={() => setShowAuth(true)}
+                      >
                         <Rocket size={20} />
                         Get Started Free
                       </button>
@@ -1025,7 +904,10 @@ function App() {
                     Go to Dashboard
                   </button>
                 ) : (
-                  <button className="btn btn-primary btn-large">
+                  <button 
+                    className="btn btn-primary btn-large"
+                    onClick={() => setShowAuth(true)}
+                  >
                     <Rocket size={20} />
                     Start Free Trial
                   </button>
@@ -1201,7 +1083,10 @@ function App() {
                     and track your progress to land your dream job.
                   </p>
                   <div className="hero-cta">
-                    <button className="btn btn-primary btn-large">
+                    <button 
+                      className="btn btn-primary btn-large"
+                      onClick={() => setShowAuth(true)}
+                    >
                       Get Started Free
                       <ArrowRight size={20} />
                     </button>
@@ -1884,6 +1769,152 @@ function App() {
               ))}
             </div>
             <button onClick={() => setNewAchievements([])}>×</button>
+          </div>
+        </div>
+      )}
+
+      {/* Authentication Modal */}
+      {showAuth && !isAuthenticated && (
+        <div className="modal-overlay" onClick={() => setShowAuth(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '500px'}}>
+            <div className="modal-header">
+              <h2>{authMode === 'login' ? 'Welcome Back' : 'Create Account'}</h2>
+              <button className="modal-close" onClick={() => setShowAuth(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="auth-tabs">
+                <button
+                  className={authMode === 'login' ? 'active' : ''}
+                  onClick={() => { setAuthMode('login'); setError(null); }}
+                >
+                  Login
+                </button>
+                <button
+                  className={authMode === 'register' ? 'active' : ''}
+                  onClick={() => { setAuthMode('register'); setError(null); }}
+                >
+                  Register
+                </button>
+              </div>
+
+              {error && (
+                <div className="error-message" style={{marginTop: '1rem'}}>
+                  <AlertCircle size={20} />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {authMode === 'login' ? (
+                <form onSubmit={handleLogin} className="auth-form">
+                  <div className="form-group">
+                    <label>Username</label>
+                    <input
+                      type="text"
+                      value={authForm.username}
+                      onChange={(e) => setAuthForm({ ...authForm, username: e.target.value })}
+                      required
+                      placeholder="Enter your username"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Password</label>
+                    <input
+                      type="password"
+                      value={authForm.password}
+                      onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                      required
+                      placeholder="Enter your password"
+                    />
+                  </div>
+                  <button type="submit" className="auth-submit" disabled={loading}>
+                    {loading ? (
+                      <>
+                        <Loader2 size={20} className="spin" />
+                        <span>Logging in...</span>
+                      </>
+                    ) : (
+                      'Login'
+                    )}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleRegister} className="auth-form">
+                  <div className="form-group">
+                    <label>Username *</label>
+                    <input
+                      type="text"
+                      value={authForm.username}
+                      onChange={(e) => setAuthForm({ ...authForm, username: e.target.value })}
+                      required
+                      placeholder="Choose a username"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Email *</label>
+                    <input
+                      type="email"
+                      value={authForm.email}
+                      onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                      required
+                      placeholder="your.email@example.com"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Password *</label>
+                    <input
+                      type="password"
+                      value={authForm.password}
+                      onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                      required
+                      minLength="6"
+                      placeholder="At least 6 characters"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Full Name *</label>
+                    <input
+                      type="text"
+                      value={authForm.name}
+                      onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
+                      required
+                      placeholder="Your full name"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Bio</label>
+                    <textarea
+                      value={authForm.bio}
+                      onChange={(e) => setAuthForm({ ...authForm, bio: e.target.value })}
+                      placeholder="Tell us about yourself..."
+                      rows="3"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Experience Level *</label>
+                    <select
+                      value={authForm.experience_level}
+                      onChange={(e) => setAuthForm({ ...authForm, experience_level: e.target.value })}
+                      required
+                    >
+                      <option value="Beginner">Beginner</option>
+                      <option value="Intermediate">Intermediate</option>
+                      <option value="Advanced">Advanced</option>
+                      <option value="Expert">Expert</option>
+                    </select>
+                  </div>
+                  <button type="submit" className="auth-submit" disabled={loading}>
+                    {loading ? (
+                      <>
+                        <Loader2 size={20} className="spin" />
+                        <span>Creating account...</span>
+                      </>
+                    ) : (
+                      'Register'
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       )}
