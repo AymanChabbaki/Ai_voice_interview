@@ -1,1117 +1,570 @@
-# Smart Voice Interviewer 🎯
+﻿# Smart Voice Interviewer
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![Python](https://img.shields.io/badge/python-3.8+-green.svg)
-![React](https://img.shields.io/badge/react-18.3-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-teal.svg)
+![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-teal.svg)
+![React](https://img.shields.io/badge/react-18-61dafb.svg)
+![Vite](https://img.shields.io/badge/vite-5-646cff.svg)
 ![License](https://img.shields.io/badge/license-MIT-orange.svg)
 
-**AI-Powered Interview Practice Platform with Voice Recognition**
+**AI-powered mock interview platform with semantic answer scoring, course recommendations, and progress tracking.**
 
-[Features](#features) • [Installation](#installation) • [Documentation](#documentation) • [API Reference](#api-reference)
+[Overview](#overview) � [Quick Start](#quick-start) � [Project Structure](#project-structure) � [API Reference](#api-reference) � [Team](#team)
 
 </div>
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Features](#features)
 - [Architecture](#architecture)
-- [Technology Stack](#technology-stack)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Usage](#usage)
+- [Project Structure](#project-structure)
+- [Tech Stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Environment Variables](#environment-variables)
 - [API Reference](#api-reference)
 - [Database Schema](#database-schema)
-- [Development Guide](#development-guide)
+- [AI and ML Pipeline](#ai-and-ml-pipeline)
+- [Achievements System](#achievements-system)
+- [Development](#development)
 - [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
+- [Team](#team)
 
 ---
 
-## 🌟 Overview
+## Overview
 
-Smart Voice Interviewer is an advanced AI-powered interview preparation platform that helps candidates practice and improve their interview skills through intelligent mock interviews. The system uses Sentence-BERT for semantic answer evaluation, speech recognition for voice input, and provides real-time feedback with comprehensive analytics.
+Smart Voice Interviewer is an AI-powered interview preparation platform. Candidates practice mock interviews by answering questions and receiving instant, semantically-aware feedback scored by **Sentence-BERT** (cosine similarity). After each session the system recommends courses targeted at the candidate's weak areas using a TF-IDF retrieval pipeline and pre-trained classifiers.
 
 ### Key Highlights
 
-- **AI-Powered Evaluation**: Uses Sentence-BERT (all-MiniLM-L6-v2) for semantic similarity scoring
-- **Voice Interaction**: Speech recognition and text-to-speech capabilities
-- **Real-Time Feedback**: Instant scoring and detailed explanations
-- **Progress Tracking**: Comprehensive analytics, achievements, and streak tracking
-- **Multi-Category Support**: Practice across various technical domains
-- **Modern UI**: Professional design with smooth animations and responsive layout
+- **Semantic Scoring** � answers are evaluated by meaning, not keyword matching, using `sentence-transformers/all-MiniLM-L6-v2`
+- **Course Recommendations** � personalized courses suggested from a catalog based on topic and difficulty gap
+- **User Profiles** � registration, JWT auth, bio, experience level, interests
+- **Progress Analytics** � per-category scores, interview history, streaks
+- **Achievements** � five milestone badges unlocked automatically
+- **Production-Ready Backend** — rate limiting, env-based secrets, PostgreSQL with connection pooling, structured logging
 
 ---
 
-## ✨ Features
+## Features
 
-### Core Functionality
-
-#### 🎤 Voice-Enabled Interviews
-- **Speech Recognition**: Real-time voice input using Web Speech API
-- **Text-to-Speech**: Questions are read aloud automatically
-- **Manual Override**: Option to type answers or use voice input
-- **Multi-Language Support**: Configurable language settings
-
-#### 🤖 AI-Powered Evaluation
-- **Semantic Similarity**: Sentence-BERT model evaluates answer quality
-- **Intelligent Scoring**: 0-100 score based on semantic understanding
-- **Detailed Feedback**: Explanations for each score
-- **Expected Answers**: Shows ideal responses for learning
-
-#### 📊 Progress Tracking
-- **Interview History**: Complete record of all practice sessions
-- **Performance Analytics**: Track improvement over time
-- **Streak Tracking**: Daily practice streak monitoring
-- **Category-wise Stats**: Performance breakdown by topic
-
-#### 🏆 Gamification
-- **Achievement System**: Unlock badges for milestones
-  - First Interview
-  - Perfect Score
-  - Practice Marathon
-  - Week Warrior
-  - Perfect Streak
-  - Interview Master
-  - Speed Demon
-  - Knowledge Seeker
-- **Leaderboards**: Compare with other users (coming soon)
-- **XP System**: Earn experience points (coming soon)
-
-#### 📈 Dashboard & Analytics
-- **Personal Dashboard**: Overview of stats and recent activity
-- **KPI Cards**: Total interviews, pass rate, streak, achievements
-- **Recent Activity**: Latest interview sessions with scores
-- **Quick Actions**: Fast access to common tasks
-
-#### 🏠 Landing Pages
-- **Public Home Page**: Hero section, features showcase, how-it-works
-- **Authenticated Home**: Personalized stats and quick access
-- **Stats Showcase**: Platform achievements and user count
-
-### User Management
-
-#### 👤 Authentication & Profile
-- **User Registration**: Create account with profile details
-- **Secure Login**: JWT-based authentication
-- **Profile Management**: Update bio, experience level, interests
-- **Avatar System**: Auto-generated profile avatars
-
-#### 🔒 Security Features
-- **Password Hashing**: Secure password storage
-- **JWT Tokens**: Stateless authentication
-- **Token Expiry**: Automatic session management
-- **CORS Protection**: Secure cross-origin requests
+| Area | Details |
+|------|---------|
+| Interview flow | Select a category, answer `NUM_QUESTIONS` questions, receive a score per question |
+| Semantic scoring | Cosine similarity between candidate embedding and reference answer embedding; threshold configurable |
+| Course recommendations | After results, TF-IDF + category/difficulty classifiers suggest relevant courses |
+| Authentication | JWT Bearer tokens (HS256, 7-day default expiry) |
+| Rate limiting | `/register` 5 req/min � `/login` 10 req/min � global 200 req/min |
+| Profiles | Username, name, bio, experience level (Beginner / Intermediate / Advanced), interests |
+| Stats | Total interviews, average pass rate, current streak, best streak |
+| History | Per-session record: topic, date, pass rate, average score, question count |
+| Achievements | Five automatic badges triggered by interview count, pass rate, and streak |
+| Analytics | Per-category performance breakdown across all historical sessions |
 
 ---
 
-## 🏗 Architecture
-
-### System Design
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        Frontend (React)                      │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │  Home Page   │  │  Dashboard   │  │  Interview   │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │ Achievements │  │   History    │  │   Profile    │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                    REST API (FastAPI)
-                            │
-┌─────────────────────────────────────────────────────────────┐
-│                     Backend Services                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │ Auth Service │  │ Interview    │  │  Analytics   │     │
-│  │              │  │   Service    │  │   Service    │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-│                            │                                 │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │ User Manager │  │  Question    │  │ Achievement  │     │
-│  │              │  │   Manager    │  │   Manager    │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-└─────────────────────────────────────────────────────────────┘
-                            │
-┌─────────────────────────────────────────────────────────────┐
-│                   AI/ML Layer (PyTorch)                      │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │ Sentence-    │  │  Embedding   │  │  Similarity  │     │
-│  │   BERT       │  │  Generator   │  │  Calculator  │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-└─────────────────────────────────────────────────────────────┘
-                            │
-┌─────────────────────────────────────────────────────────────┐
-│                  Data Layer (SQLite)                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │    Users     │  │ Interview    │  │ Achievements │     │
-│  │              │  │   History    │  │              │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Component Flow
-
-```
-User Interaction → Frontend → API Request → Backend Processing
-                                              ↓
-                                    AI Model Evaluation
-                                              ↓
-                                    Database Update
-                                              ↓
-                                    Response with Score
-                                              ↓
-Frontend Update ← API Response ←──────────────┘
++--------------------------------------+
+�         Browser (React 18 + Vite)    �
+�  Home � Dashboard � Interview � Auth �
+�  port 5173                           �
++--------------------------------------+
+                �  REST (JSON)
+                ?
++--------------------------------------+
+�       FastAPI Backend (Python)       �
+�  JWT auth � slowapi rate limiting    �
+�  Pydantic v2 validation              �
+�  port 8000                           �
+�                                      �
+�  +------------------------------+    �
+�  �   Sentence-BERT inference   �    �
+�  �   all-MiniLM-L6-v2          �    �
+�  �   cosine_similarity scorer  �    �
+�  +------------------------------+    �
+�                                      �
+�  +------------------------------+    �
+�  �   Course recommendation     �    �
+�  �   TF-IDF � RF classifiers   �    �
+�  +------------------------------+    �
+�                                      �
+�  +------------------------------+    �
+│  │   PostgreSQL                 │    │
+│  │   users · user_stats ·       │    │
+│  │   interview_history          │    │
+�  +------------------------------+    �
++--------------------------------------+
 ```
 
 ---
 
-## 💻 Technology Stack
+## Project Structure
 
-### Frontend
-- **React 18.3**: Modern UI library with hooks
-- **Vite 5.4**: Fast build tool and dev server
-- **Lucide React**: Beautiful icon library
-- **Web Speech API**: Browser-based speech recognition
-- **CSS3**: Custom animations and modern styling
+```
+Jira_Project/
++-- backend/                        # FastAPI Python backend
+�   +-- app.py                      # Main application (routes, auth, AI scoring)
+�   +-- database.py                 # PostgreSQL layer (psycopg2, connection pool)  
+�   +-- requirements.txt            # Python dependencies
+�   +-- .env.example                # Environment variable template
+�
++-- frontend/                       # React 18 + Vite frontend
+�   +-- src/
+�   �   +-- App.jsx                 # Single-page application (~1900 lines)
+�   �   +-- App.css                 # Global styles
+�   �   +-- confetti.js             # Celebration animation
+�   �   +-- index.css               # Base CSS reset
+�   �   +-- main.jsx                # React entry point
+�   +-- package.json
+�   +-- vite.config.js
+�
++-- models/                         # Pre-trained ML artefacts
+�   +-- category_classifier.joblib         # RandomForest: predicts topic category
+�   +-- difficulty_classifier.joblib       # RandomForest: predicts difficulty
+�   +-- label_encoder_category.joblib      # LabelEncoder for category classes
+�   +-- label_encoder_difficulty.joblib    # LabelEncoder for difficulty classes
+�   +-- tfidf_vectorizer.joblib            # TF-IDF vectorizer for course retrieval
+�   +-- tfidf_matrix.joblib                # Pre-computed TF-IDF document matrix
+�   +-- course_embeddings.npy              # SBERT embeddings for courses
+�   +-- courses_data.pkl                   # Serialised course catalog
+�   +-- category_course_map.json           # Category ? course list mapping
+�   +-- model_metadata.json                # Training metadata
+�   +-- recommendation_metadata.json      # Recommendation pipeline metadata
+�
++-- Dataset/                        # Training data
+�   +-- coding_interview_question_bank.csv
+�   +-- Mock_interview_questions.json
+�   +-- Software Questions.csv
+�
++-- docs/                           # Additional documentation
++-- final_knowledge_base.csv        # Interview questions used at runtime
+�                                   #   columns: Category, Question, Answer, Difficulty
++-- course_catalog.csv              # Course catalog used at runtime
+�                                   #   columns: Course_Title, Category, Platform,
+�                                   #            Provider, Difficulty, URL
++-- ai_voice_complete.ipynb         # Jupyter notebook (model training & exploration)
++-- Names_Role.md                   # Team members and roles
++-- README.md                       # This file
+```
+
+---
+
+## Tech Stack
 
 ### Backend
-- **FastAPI**: High-performance async web framework
-- **Python 3.8+**: Core programming language
-- **Uvicorn**: ASGI server for production
-- **Sentence-Transformers**: NLP model for semantic similarity
-- **PyTorch**: Deep learning framework
-- **JWT**: JSON Web Token authentication
 
-### Database
-- **SQLite**: Lightweight embedded database
-- **SQLAlchemy**: ORM for database operations (optional)
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `fastapi` | 0.115.6 | Web framework |
+| `uvicorn[standard]` | 0.34.0 | ASGI server |
+| `pydantic[email]` | 2.10.6 | Request validation |
+| `python-multipart` | 0.0.20 | Form data parsing |
+| `python-jose[cryptography]` | 3.3.0 | JWT creation & verification |
+| `bcrypt` + `passlib[bcrypt]` | 4.2.1 / 1.7.4 | Password hashing |
+| `slowapi` | 0.1.9 | Rate limiting |
+| `psycopg2-binary` | 2.9.9 | PostgreSQL driver + connection pool |
+| `sentence-transformers` | 2.2.2 | Semantic answer scoring |
+| `torch` | 2.0.1 | PyTorch runtime |
+| `scikit-learn` | 1.3.2 | Classifiers & TF-IDF |
+| `numpy` | 1.23.5 | Numerical operations |
+| `pandas` | 2.0.3 | CSV data loading |
+| `python-dotenv` | 1.0.1 | .env file loading |
 
-### AI/ML
-- **Sentence-BERT**: `all-MiniLM-L6-v2` model
-- **Transformers**: Hugging Face library
-- **NumPy**: Numerical computations
-- **SciPy**: Scientific computing utilities
+### Frontend
 
-### DevOps
-- **Git**: Version control
-- **npm/pip**: Package management
-- **Postman**: API testing
+| Package | Purpose |
+|---------|---------|
+| React 18 | UI library |
+| Vite 5 | Build tool & dev server |
+| lucide-react | Icon library |
+| Web Speech API | Browser speech recognition (built-in) |
 
 ---
 
-## 📦 Installation
+## Prerequisites
 
-### Prerequisites
+- **Python 3.10+**
+- **Node.js 18+** and npm
+- **PostgreSQL 14+** running locally or a managed instance (e.g. Supabase, Neon, Railway)
+- ~2 GB disk space (PyTorch + sentence-transformers)
 
-- **Node.js**: v16.0 or higher
-- **Python**: 3.8 or higher
-- **pip**: Latest version
-- **Git**: For cloning the repository
+---
 
-### Step 1: Clone Repository
+## Quick Start
+
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/smart-voice-interviewer.git
-cd smart-voice-interviewer
+git clone <repository-url>
+cd Jira_Project
 ```
 
-### Step 2: Backend Setup
-
-#### 2.1 Create Virtual Environment
+### 2. Set up the backend
 
 ```bash
 cd backend
-python -m venv venv
-```
 
-#### 2.2 Activate Virtual Environment
+# Copy and edit the environment file
+cp .env.example .env
+# Open .env and fill in both required values:
+#   SECRET_KEY  – generate with: python -c "import secrets; print(secrets.token_hex(32))"
+#   DATABASE_URL – e.g. postgresql://postgres:password@localhost:5432/smart_interviewer
 
-**Windows:**
-```bash
-venv\Scripts\activate
-```
+# Create a virtual environment (recommended)
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# macOS / Linux:
+source .venv/bin/activate
 
-**macOS/Linux:**
-```bash
-source venv/bin/activate
-```
-
-#### 2.3 Install Dependencies
-
-```bash
+# Install dependencies
 pip install -r requirements.txt
+
+# Create the PostgreSQL database (one-time setup)
+# Connect to psql as a superuser and run:
+#   CREATE DATABASE smart_interviewer;
+# Tables are created automatically on first server start.
+
+# Start the server
+python app.py
+# Server is now running at http://localhost:8000
 ```
 
-**requirements.txt:**
-```txt
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
-sentence-transformers==2.2.2
-torch==2.1.0
-numpy==1.24.3
-pandas==2.0.3
-scikit-learn==1.3.0
-```
+### 3. Set up the frontend
 
-#### 2.4 Initialize Database
-
-The database will be created automatically on first run. To manually initialize:
-
-```bash
-python database.py
-```
-
-#### 2.5 Start Backend Server
-
-```bash
-uvicorn app:app --reload --host 0.0.0.0 --port 8000
-```
-
-Server will be available at `http://localhost:8000`
-
-### Step 3: Frontend Setup
-
-#### 3.1 Install Dependencies
+Open a second terminal:
 
 ```bash
 cd frontend
+
+# Install dependencies
 npm install
+
+# Start the dev server
+npm run dev
+# App is now running at http://localhost:5173
 ```
 
-**Key dependencies:**
+### 4. Open the app
+
+Navigate to **http://localhost:5173** in your browser, register an account, and start an interview.
+
+---
+
+## Environment Variables
+
+All backend configuration is controlled through a `.env` file in the `backend/` directory.
+Copy `backend/.env.example` to `backend/.env` and edit as needed.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `SECRET_KEY` | **Yes** | � | JWT signing secret. Generate with `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `PORT` | No | `8000` | Port the server binds to |
+| `WORKERS` | No | `1` | Number of uvicorn worker processes |
+| `LOG_LEVEL` | No | `info` | Logging level (`debug`, `info`, `warning`, `error`) |
+| `RELOAD` | No | `false` | Hot-reload (set `true` in development only) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No | `10080` (7 days) | JWT expiry in minutes |
+| `ALLOWED_ORIGINS` | No | `http://localhost:5173` | Comma-separated list of allowed CORS origins |
+| `SIMILARITY_THRESHOLD` | No | `0.6` | Minimum cosine similarity score to pass a question |
+| `NUM_QUESTIONS` | No | `3` | Number of questions per interview session |
+| `KB_FILE` | No | `../final_knowledge_base.csv` | Path to interview questions CSV |
+| `COURSES_FILE` | No | `../course_catalog.csv` | Path to course catalog CSV |
+
+---
+
+## API Reference
+
+Base URL: `http://localhost:8000`
+
+### Public Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/` | API metadata |
+| `GET` | `/health` | Health check |
+| `GET` | `/categories` | List all available interview categories |
+| `GET` | `/statistics` | Dataset statistics (question counts per category) |
+
+### Authentication
+
+| Method | Endpoint | Rate limit | Description |
+|--------|----------|-----------|-------------|
+| `POST` | `/register` | 5/min | Create a new user account |
+| `POST` | `/login` | 10/min | Authenticate and receive a JWT token |
+
+#### Register � `POST /register`
+
 ```json
 {
-  "react": "^18.3.1",
-  "react-dom": "^18.3.1",
-  "lucide-react": "^0.263.1",
-  "vite": "^5.4.2"
+  "username": "jdoe",
+  "email": "jdoe@example.com",
+  "password": "StrongPass123!",
+  "name": "Jane Doe",
+  "bio": "Software engineer",
+  "experience_level": "Intermediate",
+  "interests": ["Python", "System Design"]
 }
 ```
 
-#### 3.2 Start Development Server
+Response: `{ "message": "User created", "user_id": "...", "token": "..." }`
+
+#### Login � `POST /login`
+
+```json
+{ "username": "jdoe", "password": "StrongPass123!" }
+```
+
+Response: `{ "access_token": "...", "token_type": "bearer", "user_id": "...", "username": "..." }`
+
+### Interview
+
+All interview endpoints are stateless (session data stored server-side by `session_id`).
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/interview/start` | No | Start a new interview session |
+| `POST` | `/interview/answer` | No | Submit an answer and receive a score |
+| `GET` | `/interview/results/{session_id}` | No | Full results + course recommendations |
+| `DELETE` | `/interview/{session_id}` | No | Delete a session |
+| `GET` | `/interview/sessions` | No | List active sessions |
+
+#### Start interview � `POST /interview/start`
+
+```json
+{ "category": "Python", "user_id": "optional-user-id" }
+```
+
+Response: `{ "session_id": "...", "question": "...", "question_number": 1, "total_questions": 3 }`
+
+#### Submit answer � `POST /interview/answer`
+
+```json
+{
+  "session_id": "...",
+  "answer": "A list is mutable, a tuple is immutable..."
+}
+```
+
+Response: `{ "score": 82.5, "passed": true, "feedback": "...", "expected_answer": "...", "next_question": "...", "session_complete": false }`
+
+### Profile (JWT required)
+
+Send the token as `Authorization: Bearer <token>`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/me` | Current user info |
+| `GET` | `/profile/{user_id}` | Full profile |
+| `PUT` | `/profile/{user_id}` | Update profile fields |
+| `GET` | `/profile/{user_id}/stats` | Stats summary |
+| `GET` | `/profile/{user_id}/history` | Interview history (paginated) |
+| `GET` | `/profile/{user_id}/analytics` | Per-category performance breakdown |
+| `POST` | `/profile/{user_id}/update-after-interview` | Save results, update stats, award achievements |
+
+---
+
+## Database Schema
+
+PostgreSQL. Tables are created automatically on first server start via `init_db()`.
+
+```sql
+CREATE TABLE IF NOT EXISTS users (
+    id               SERIAL PRIMARY KEY,
+    user_id          TEXT   UNIQUE NOT NULL,  -- UUID
+    username         TEXT   UNIQUE NOT NULL,
+    email            TEXT   UNIQUE NOT NULL,
+    password_hash    TEXT   NOT NULL,
+    name             TEXT   NOT NULL,
+    bio              TEXT,
+    experience_level TEXT   NOT NULL DEFAULT 'Beginner',  -- Beginner | Intermediate | Advanced
+    interests        TEXT,                                -- JSON array
+    created_at       TEXT   NOT NULL,
+    updated_at       TEXT   NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_stats (
+    id                  SERIAL  PRIMARY KEY,
+    user_id             TEXT    UNIQUE NOT NULL
+                        REFERENCES users(user_id) ON DELETE CASCADE,
+    interview_count     INTEGER NOT NULL DEFAULT 0,
+    total_score         REAL    NOT NULL DEFAULT 0.0,
+    current_streak      INTEGER NOT NULL DEFAULT 0,
+    best_streak         INTEGER NOT NULL DEFAULT 0,
+    last_interview_date TEXT,
+    achievements        TEXT    -- JSON array of achievement IDs
+);
+
+CREATE TABLE IF NOT EXISTS interview_history (
+    id              SERIAL  PRIMARY KEY,
+    user_id         TEXT    NOT NULL
+                    REFERENCES users(user_id) ON DELETE CASCADE,
+    session_id      TEXT    NOT NULL,
+    topic           TEXT    NOT NULL,
+    date            TEXT    NOT NULL,
+    pass_rate       REAL    NOT NULL,
+    average_score   REAL    NOT NULL,
+    questions_count INTEGER NOT NULL,
+    passed          INTEGER NOT NULL  -- 1 = majority passed
+);
+```
+
+---
+
+## AI and ML Pipeline
+
+### Semantic Answer Scoring
+
+1. On startup the backend loads `sentence-transformers/all-MiniLM-L6-v2` (384-dim embeddings).
+2. All reference answers from `final_knowledge_base.csv` are encoded once and cached in memory.
+3. When a candidate submits an answer, it is encoded and cosine similarity is computed against the reference embedding.
+4. Score = `cosine_similarity * 100`. Score = `SIMILARITY_THRESHOLD * 100` (default 60) counts as a pass.
+
+### Course Recommendations
+
+After an interview session, the pipeline:
+
+1. Identifies the weakest questions (below threshold) and their categories.
+2. Uses `TfidfVectorizer` + pre-computed `tfidf_matrix.joblib` to retrieve semantically relevant courses from `course_catalog.csv`.
+3. Applies `category_classifier.joblib` and `difficulty_classifier.joblib` (RandomForest) to re-rank results.
+4. Returns the top-N courses with title, platform, provider, difficulty, and direct URL.
+
+### Pre-trained Model Files
+
+| File | Description |
+|------|-------------|
+| `category_classifier.joblib` | RandomForest predicting interview topic category |
+| `difficulty_classifier.joblib` | RandomForest predicting question difficulty |
+| `label_encoder_category.joblib` | Encodes/decodes category class labels |
+| `label_encoder_difficulty.joblib` | Encodes/decodes difficulty class labels |
+| `tfidf_vectorizer.joblib` | Fitted TF-IDF vectorizer for course text |
+| `tfidf_matrix.joblib` | Pre-computed TF-IDF document matrix |
+| `course_embeddings.npy` | SBERT embeddings for course descriptions |
+| `courses_data.pkl` | Serialised course catalog DataFrame |
+| `category_course_map.json` | Category ? recommended course list mapping |
+| `model_metadata.json` | Training dataset and hyper-parameter metadata |
+| `recommendation_metadata.json` | Recommendation pipeline configuration |
+
+Training code and exploration notebooks are in `ai_voice_complete.ipynb`.
+
+---
+
+## Achievements System
+
+Achievements are evaluated automatically after every interview session saved via `POST /profile/{user_id}/update-after-interview`.
+
+| ID | Badge | Unlock Condition |
+|----|-------|-----------------|
+| `first_interview` | Getting Started | Complete your first interview |
+| `ten_interviews` | Dedicated Learner | Complete 10 interviews |
+| `fifty_interviews` | Master Learner | Complete 50 interviews |
+| `perfect_score` | Perfect! | Achieve a 100% pass rate in a session |
+| `five_day_streak` | On Fire! | Maintain a 5-day daily streak |
+
+---
+
+## Development
+
+### Running Both Services Together
+
+**Terminal 1 � Backend (with hot reload):**
 
 ```bash
+cd backend
+# Set RELOAD=true in .env, then:
+python app.py
+```
+
+**Terminal 2 � Frontend:**
+
+```bash
+cd frontend
 npm run dev
 ```
 
-Frontend will be available at `http://localhost:5173`
+### Building the Frontend for Production
 
-### Step 4: Load Question Dataset
-
-Place your question datasets in the `Dataset/` folder:
-
-- `coding_interview_question_bank.csv`
-- `Mock_interview_questions.json`
-- `Software Questions.csv`
-
-Format examples in [Database Schema](#database-schema) section.
-
----
-
-## ⚙️ Configuration
-
-### Backend Configuration
-
-**app.py:**
-```python
-# API Configuration
-API_BASE_URL = "http://localhost:8000"
-CORS_ORIGINS = ["http://localhost:5173"]
-
-# JWT Configuration
-SECRET_KEY = "your-secret-key-here"  # Change in production!
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-# Model Configuration
-MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
-SIMILARITY_THRESHOLD = 0.6  # 60% similarity for passing
+```bash
+cd frontend
+npm run build
+# Output is in frontend/dist/
 ```
 
-### Frontend Configuration
+Serve `dist/` with any static file server or configure nginx/caddy to proxy `/api` to the FastAPI backend.
 
-**App.jsx:**
-```javascript
-const API_BASE_URL = 'http://localhost:8000';
-```
+### Backend Production Deployment
 
-### Environment Variables (Production)
-
-Create `.env` file:
-
-```env
-# Backend
-SECRET_KEY=your-production-secret-key
-DATABASE_URL=sqlite:///./interview_system.db
-CORS_ORIGINS=https://yourdomain.com
-
-# Frontend
-VITE_API_URL=https://api.yourdomain.com
-```
-
----
-
-## 🚀 Usage
-
-### For Users
-
-#### 1. Registration
-1. Navigate to the home page
-2. Click "Get Started Free" or "Login" button
-3. Switch to "Register" tab
-4. Fill in:
-   - Username (required)
-   - Email (required)
-   - Password (min 6 characters)
-   - Full Name (required)
-   - Bio (optional)
-   - Experience Level (Beginner/Intermediate/Advanced/Expert)
-5. Click "Register"
-
-#### 2. Starting an Interview
-1. Login to your account
-2. Navigate to Dashboard or click "Start Interview"
-3. Select interview category (e.g., Python, JavaScript, Data Structures)
-4. Choose number of questions (1-20)
-5. Enable/disable voice input
-6. Click "Start Interview"
-
-#### 3. Answering Questions
-1. Read or listen to the question
-2. Click microphone icon to use voice input (or type manually)
-3. Speak your answer clearly
-4. Click "Submit Answer"
-5. View instant feedback and score
-6. Click "Next Question" to continue
-
-#### 4. Reviewing Results
-1. Complete all questions in the session
-2. View comprehensive results:
-   - Total score and pass/fail status
-   - Individual question scores
-   - Correct answers for learning
-3. Celebrate achievements unlocked! 🎉
-4. Click "Back to Dashboard" to view history
-
-#### 5. Tracking Progress
-- **Dashboard**: View KPIs (interviews, pass rate, streak)
-- **History**: Click history icon to see all sessions
-- **Achievements**: Click trophy icon to view unlocked badges
-- **Profile**: Update your information and preferences
-
-### For Developers
-
-#### Running Tests
-
-**Backend:**
 ```bash
 cd backend
-pytest tests/
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm test
-```
-
-#### Building for Production
-
-**Frontend:**
-```bash
-npm run build
-```
-
-Output in `frontend/dist/`
-
-**Backend:**
-```bash
-# Use production WSGI server
-gunicorn app:app -w 4 -k uvicorn.workers.UvicornWorker
+# Set RELOAD=false, WORKERS=4 (or 2*CPU+1) in .env
+python app.py
+# or directly:
+uvicorn app:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
 ---
 
-## 📚 API Reference
+## Troubleshooting
 
-### Base URL
-```
-http://localhost:8000
-```
+### `RuntimeError: Missing required environment variables: SECRET_KEY, DATABASE_URL`
 
-### Authentication Endpoints
+The backend hard-fails at startup if either `SECRET_KEY` or `DATABASE_URL` is missing.
 
-#### Register User
-```http
-POST /register
-Content-Type: application/json
-
-{
-  "username": "johndoe",
-  "email": "john@example.com",
-  "password": "securepass123",
-  "name": "John Doe",
-  "bio": "Software Engineer",
-  "experience_level": "Intermediate"
-}
-
-Response 200:
-{
-  "access_token": "eyJhbGc...",
-  "token_type": "bearer",
-  "user": {
-    "user_id": 1,
-    "username": "johndoe",
-    "email": "john@example.com",
-    "name": "John Doe"
-  }
-}
-```
-
-#### Login
-```http
-POST /login
-Content-Type: application/json
-
-{
-  "username": "johndoe",
-  "password": "securepass123"
-}
-
-Response 200:
-{
-  "access_token": "eyJhbGc...",
-  "token_type": "bearer",
-  "user": { /* user object */ }
-}
-```
-
-### Interview Endpoints
-
-#### Get Categories
-```http
-GET /categories
-Authorization: Bearer {token}
-
-Response 200:
-[
-  "Python",
-  "JavaScript",
-  "Data Structures",
-  "Algorithms",
-  "System Design"
-]
-```
-
-#### Start Interview
-```http
-POST /interview/start
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-  "category": "Python",
-  "num_questions": 5,
-  "user_id": 1
-}
-
-Response 200:
-{
-  "session_id": "uuid-here",
-  "questions": [
-    {
-      "id": 1,
-      "question": "What is a list comprehension in Python?",
-      "category": "Python",
-      "difficulty": "Medium",
-      "expected_answer": "..."
-    }
-  ],
-  "total_questions": 5
-}
-```
-
-#### Submit Answer
-```http
-POST /interview/answer
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-  "session_id": "uuid-here",
-  "question_id": 1,
-  "user_answer": "A list comprehension is a concise way...",
-  "user_id": 1
-}
-
-Response 200:
-{
-  "score": 85.5,
-  "feedback": "Excellent explanation!",
-  "is_correct": true,
-  "expected_answer": "...",
-  "similarity": 0.855
-}
-```
-
-#### End Interview
-```http
-POST /interview/end
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-  "session_id": "uuid-here",
-  "user_id": 1
-}
-
-Response 200:
-{
-  "total_score": 82.3,
-  "passed": true,
-  "questions_answered": 5,
-  "achievements": [
-    {
-      "title": "First Interview",
-      "description": "Completed your first interview"
-    }
-  ]
-}
-```
-
-### User Profile Endpoints
-
-#### Get User Profile
-```http
-GET /profile/{user_id}
-Authorization: Bearer {token}
-
-Response 200:
-{
-  "user_id": 1,
-  "username": "johndoe",
-  "name": "John Doe",
-  "email": "john@example.com",
-  "bio": "Software Engineer",
-  "experience_level": "Intermediate",
-  "interview_count": 15,
-  "total_score": 1247.5,
-  "current_streak": 7,
-  "achievements": [...]
-}
-```
-
-#### Update Profile
-```http
-PUT /profile/{user_id}
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-  "name": "John Smith",
-  "bio": "Senior Developer",
-  "experience_level": "Advanced"
-}
-
-Response 200:
-{
-  "message": "Profile updated successfully",
-  "user": { /* updated user */ }
-}
-```
-
-#### Get Interview History
-```http
-GET /profile/{user_id}/history
-Authorization: Bearer {token}
-
-Response 200:
-[
-  {
-    "session_id": "uuid",
-    "date": "2026-01-20T10:30:00",
-    "topic": "Python",
-    "questions_count": 5,
-    "pass_rate": 85.5,
-    "passed": true,
-    "time_spent": 450
-  }
-]
-```
-
-### Health Check
-
-#### Check API Status
-```http
-GET /health
-
-Response 200:
-{
-  "status": "healthy",
-  "timestamp": "2026-01-20T10:30:00",
-  "version": "1.0.0",
-  "model_loaded": true
-}
-```
-
----
-
-## 🗄 Database Schema
-
-### Users Table
-```sql
-CREATE TABLE users (
-    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    name TEXT NOT NULL,
-    bio TEXT,
-    experience_level TEXT DEFAULT 'Beginner',
-    interests TEXT,  -- JSON array
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    interview_count INTEGER DEFAULT 0,
-    total_score REAL DEFAULT 0.0,
-    current_streak INTEGER DEFAULT 0,
-    last_interview_date DATE
-);
-```
-
-### Interview History Table
-```sql
-CREATE TABLE interview_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    session_id TEXT NOT NULL,
-    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    topic TEXT NOT NULL,
-    questions_count INTEGER NOT NULL,
-    pass_rate REAL NOT NULL,
-    passed BOOLEAN NOT NULL,
-    time_spent INTEGER,  -- seconds
-    questions TEXT,  -- JSON array
-    answers TEXT,  -- JSON array
-    scores TEXT,  -- JSON array
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
-);
-```
-
-### Achievements Table
-```sql
-CREATE TABLE achievements (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    title TEXT NOT NULL,
-    description TEXT NOT NULL,
-    icon TEXT NOT NULL,
-    unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
-);
-```
-
-### Question Bank Format
-
-**CSV Format (coding_interview_question_bank.csv):**
-```csv
-Category,Question,Expected_Answer,Difficulty
-Python,What is a decorator?,A decorator is a function that modifies...,Medium
-JavaScript,Explain closures,A closure is a function that has access...,Hard
-```
-
-**JSON Format (Mock_interview_questions.json):**
-```json
-[
-  {
-    "id": 1,
-    "category": "Data Structures",
-    "question": "What is the time complexity of searching in a balanced BST?",
-    "expected_answer": "O(log n) because...",
-    "difficulty": "Medium"
-  }
-]
-```
-
----
-
-## 🛠 Development Guide
-
-### Project Structure
-
-```
-smart-voice-interviewer/
-├── backend/
-│   ├── app.py                 # Main FastAPI application
-│   ├── database.py            # Database operations
-│   ├── models.py              # Data models (optional)
-│   ├── requirements.txt       # Python dependencies
-│   └── interview_system.db    # SQLite database
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx           # Main React component
-│   │   ├── App.css           # Styles
-│   │   ├── main.jsx          # Entry point
-│   │   └── confetti.js       # Celebration effects
-│   ├── public/               # Static assets
-│   ├── package.json          # Node dependencies
-│   └── vite.config.js        # Vite configuration
-├── Dataset/
-│   ├── coding_interview_question_bank.csv
-│   ├── Mock_interview_questions.json
-│   └── Software Questions.csv
-├── ai_voice_complete.ipynb   # Development notebook
-└── README.md                 # This file
-```
-
-### Code Style
-
-#### Python (Backend)
-- Follow PEP 8 style guide
-- Use type hints where applicable
-- Document functions with docstrings
-
-```python
-def calculate_similarity(answer1: str, answer2: str) -> float:
-    """
-    Calculate semantic similarity between two answers.
-    
-    Args:
-        answer1: First answer text
-        answer2: Second answer text
-        
-    Returns:
-        Similarity score between 0 and 1
-    """
-    # Implementation...
-```
-
-#### JavaScript (Frontend)
-- Use ES6+ features
-- Functional components with hooks
-- Descriptive variable names
-
-```javascript
-const handleSubmitAnswer = async () => {
-  // Implementation...
-};
-```
-
-### Adding New Features
-
-#### 1. New Question Category
-
-**Backend (app.py):**
-```python
-# Add to categories endpoint
-CATEGORIES = [
-    "Python", "JavaScript", "Java",
-    "Your New Category"  # Add here
-]
-```
-
-**Dataset:**
-Create CSV or JSON with questions for the new category.
-
-#### 2. New Achievement
-
-**Backend (database.py):**
-```python
-def check_achievements(user_id, interview_data):
-    # Add new achievement logic
-    if condition_met:
-        add_achievement(user_id, {
-            'title': 'New Achievement',
-            'description': 'Description here',
-            'icon': 'icon-name'
-        })
-```
-
-#### 3. New API Endpoint
-
-**Backend (app.py):**
-```python
-@app.get("/your-endpoint")
-async def your_function(token: str = Depends(verify_token)):
-    # Implementation
-    return {"data": "response"}
-```
-
-**Frontend (App.jsx):**
-```javascript
-const fetchYourData = async () => {
-  const data = await apiRequest('/your-endpoint');
-  // Handle response
-};
-```
-
-### Testing Strategy
-
-#### Unit Tests
-Test individual functions in isolation.
-
-#### Integration Tests
-Test API endpoints with database operations.
-
-#### E2E Tests
-Test complete user flows from frontend to backend.
-
-#### Test Coverage Goals
-- Backend: 80%+ coverage
-- Frontend: 70%+ coverage
-- Critical paths: 100% coverage
-
----
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### 1. Backend Won't Start
-
-**Issue:** `ModuleNotFoundError: No module named 'sentence_transformers'`
-
-**Solution:**
 ```bash
-pip install sentence-transformers torch
+cd backend
+cp .env.example .env
+# Edit .env — set both SECRET_KEY and DATABASE_URL
+python -c "import secrets; print(secrets.token_hex(32))"  # generate SECRET_KEY
 ```
 
-**Issue:** `Port 8000 already in use`
+### Sentence-Transformers model download on first run
 
-**Solution:**
+The model `all-MiniLM-L6-v2` (~90 MB) is downloaded automatically on the first startup from the Hugging Face Hub. Ensure you have an internet connection. Subsequent starts use the local cache.
+
+### CORS errors in the browser
+
+Make sure `ALLOWED_ORIGINS` in `backend/.env` contains the exact origin your frontend is served from (e.g. `http://localhost:5173`). No trailing slash.
+
+### Cannot connect to PostgreSQL
+
+Verify that PostgreSQL is running and the database exists:
+
 ```bash
-# Windows
-netstat -ano | findstr :8000
-taskkill /PID <process_id> /F
-
-# Linux/Mac
-lsof -ti:8000 | xargs kill -9
+psql -U postgres -c "\l"                         # list databases
+psql -U postgres -c "CREATE DATABASE smart_interviewer;"  # create if missing
+psql "$DATABASE_URL" -c "\dt"                    # list tables (should show 3 after first start)
 ```
 
-#### 2. Frontend Build Errors
+Check that `DATABASE_URL` in `backend/.env` uses the correct host, port, user, password, and database name.
 
-**Issue:** `Cannot find module 'lucide-react'`
+### Port conflict
 
-**Solution:**
+Change the backend port with `PORT=8001` in `.env`, then update the frontend env:
+
 ```bash
-cd frontend
-rm -rf node_modules package-lock.json
-npm install
+# frontend/.env
+VITE_API_URL=http://localhost:8001
 ```
-
-**Issue:** API connection refused
-
-**Solution:**
-- Ensure backend is running on port 8000
-- Check CORS configuration in `app.py`
-- Verify `API_BASE_URL` in `App.jsx`
-
-#### 3. Speech Recognition Not Working
-
-**Issue:** Microphone not detected
-
-**Solution:**
-- Check browser permissions (Chrome/Edge recommended)
-- Enable HTTPS in production (required for mic access)
-- Test in Chrome DevTools → Console for errors
-
-**Issue:** Recognition stops after few seconds
-
-**Solution:**
-- Known browser limitation
-- Use continuous mode: `recognition.continuous = true`
-- Implement restart logic on silence
-
-#### 4. Low Similarity Scores
-
-**Issue:** Correct answers getting low scores
-
-**Solution:**
-- Adjust `SIMILARITY_THRESHOLD` in backend
-- Improve expected answers in dataset
-- Consider answer preprocessing (lowercase, trim)
-
-#### 5. Database Locked
-
-**Issue:** `database is locked` error
-
-**Solution:**
-```python
-# Increase timeout in database.py
-conn = sqlite3.connect('interview_system.db', timeout=10)
-```
-
-#### 6. Token Expiration
-
-**Issue:** 401 Unauthorized after some time
-
-**Solution:**
-- Increase `ACCESS_TOKEN_EXPIRE_MINUTES` in backend
-- Implement token refresh logic
-- Handle 401 responses in frontend
-
-### Debug Mode
-
-#### Enable Backend Logging
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
-
-#### Frontend Console Logging
-```javascript
-const DEBUG = true;
-if (DEBUG) console.log('API Response:', data);
-```
-
-### Performance Optimization
-
-#### Backend
-- Use Redis for caching
-- Load model once at startup
-- Implement request queuing for high load
-
-#### Frontend
-- Lazy load components
-- Implement virtual scrolling for history
-- Optimize re-renders with `useMemo` and `useCallback`
 
 ---
 
-## 🤝 Contributing
+## Team
 
-We welcome contributions! Please follow these guidelines:
-
-### Getting Started
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes
-4. Test thoroughly
-5. Commit: `git commit -m 'Add amazing feature'`
-6. Push: `git push origin feature/amazing-feature`
-7. Open a Pull Request
-
-### Contribution Guidelines
-- Follow existing code style
-- Add tests for new features
-- Update documentation
-- Keep commits atomic and descriptive
-- Reference issues in commit messages
-
-### Code Review Process
-- All PRs require review from maintainers
-- Address review comments promptly
-- Ensure CI/CD passes
-- Squash commits before merging
+| Name | Role |
+|------|------|
+| **Afyf Badreddine** | Scrum Master / Product Owner � backlog management, sprint supervision, JIRA |
+| **Mohamed Ben Difi** | AI Developer � data preparation, model training and evaluation |
+| **Ayman Chabbaki** | Full-Stack Developer � backend architecture, AI integration, frontend |
+| **Hiba Dellaji** | Design / QA � UML design, UI mockups, functional testing, validation |
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License.
-
-```
-MIT License
-
-Copyright (c) 2026 Smart Voice Interviewer
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
----
-
-## 📞 Support
-
-### Documentation
-- [User Guide](docs/USER_GUIDE.md)
-- [API Documentation](docs/API.md)
-- [Developer Guide](docs/DEVELOPER.md)
-
-### Community
-- **Issues**: [GitHub Issues](https://github.com/yourusername/smart-voice-interviewer/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/smart-voice-interviewer/discussions)
-- **Email**: support@smartvoiceinterviewer.com
-
-### Resources
-- [Sentence-BERT Documentation](https://www.sbert.net/)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [React Documentation](https://react.dev/)
-
----
-
-## 🎯 Roadmap
-
-### Version 1.1 (Q2 2026)
-- [ ] Multi-language support (Spanish, French, German)
-- [ ] Video recording for behavioral interviews
-- [ ] Enhanced analytics with charts
-- [ ] Export results to PDF
-
-### Version 1.2 (Q3 2026)
-- [ ] Mobile app (React Native)
-- [ ] Real-time collaboration (peer practice)
-- [ ] AI-generated questions
-- [ ] Integration with LinkedIn
-
-### Version 2.0 (Q4 2026)
-- [ ] Advanced AI models (GPT-4 integration)
-- [ ] Company-specific interview prep
-- [ ] Interview scheduling system
-- [ ] Marketplace for interview coaches
-
----
-
-## 🙏 Acknowledgments
-
-- **Sentence-BERT**: For the amazing semantic similarity model
-- **FastAPI**: For the high-performance web framework
-- **React Team**: For the excellent frontend library
-- **Lucide**: For the beautiful icon set
-- **Community**: All contributors and users
-
----
-
-## 📊 Project Stats
-
-![GitHub stars](https://img.shields.io/github/stars/yourusername/smart-voice-interviewer?style=social)
-![GitHub forks](https://img.shields.io/github/forks/yourusername/smart-voice-interviewer?style=social)
-![GitHub watchers](https://img.shields.io/github/watchers/yourusername/smart-voice-interviewer?style=social)
-![GitHub last commit](https://img.shields.io/github/last-commit/yourusername/smart-voice-interviewer)
-![GitHub issues](https://img.shields.io/github/issues/yourusername/smart-voice-interviewer)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/yourusername/smart-voice-interviewer)
-
----
-
-<div align="center">
-
-**Made with ❤️ by the Smart Voice Interviewer Team**
-
-[⬆ Back to Top](#smart-voice-interviewer-)
-
-</div>
