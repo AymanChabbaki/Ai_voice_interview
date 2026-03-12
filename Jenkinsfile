@@ -195,6 +195,27 @@ pipeline {
                 }
             }
         }
+
+        stage('Cleanup Docker Resources') {
+            steps {
+                echo 'Cleaning up Docker resources to free disk space...'
+                script {
+                    sh '''
+                        # Prune stopped containers, dangling images, and unused build cache
+                        ${DOCKER_CMD} system prune -af --volumes || true
+                        
+                        # Remove old images (keep only last 5)
+                        IMAGES_TO_DELETE=$(($(${DOCKER_CMD} images ${DOCKER_IMAGE} -q | wc -l) - 5))
+                        if [ $IMAGES_TO_DELETE -gt 0 ]; then
+                            ${DOCKER_CMD} images ${DOCKER_IMAGE} -q | tail -n $IMAGES_TO_DELETE | xargs -r ${DOCKER_CMD} rmi -f || true
+                        fi
+                        
+                        # Show disk usage after cleanup
+                        ${DOCKER_CMD} system df || true
+                    '''
+                }
+            }
+        }
         
         stage('Build Docker Image') {
             steps {
