@@ -62,6 +62,30 @@ pipeline {
             }
         }
         
+        stage('Check Docker Access') {
+            steps {
+                script {
+                    // Determine which docker command the jenkins user can run.
+                    // Fix permanently on the agent with:
+                    //   sudo usermod -aG docker jenkins && sudo systemctl restart jenkins
+                    if (sh(script: 'docker info > /dev/null 2>&1', returnStatus: true) == 0) {
+                        env.DOCKER_CMD       = 'docker'
+                        env.DOCKER_AVAILABLE = 'true'
+                        echo 'Docker accessible directly.'
+                    } else if (sh(script: 'sudo docker info > /dev/null 2>&1', returnStatus: true) == 0) {
+                        env.DOCKER_CMD       = 'sudo docker'
+                        env.DOCKER_AVAILABLE = 'true'
+                        echo 'Docker accessible via sudo.'
+                    } else {
+                        env.DOCKER_CMD       = ''
+                        env.DOCKER_AVAILABLE = 'false'
+                        echo 'WARNING: Docker not accessible - Docker stages will be skipped.'
+                        echo 'To fix: sudo usermod -aG docker jenkins && sudo systemctl restart jenkins'
+                    }
+                }
+            }
+        }
+
         stage('Setup Python Environment') {
             steps {
                 echo 'Setting up Python virtual environment...'
@@ -172,25 +196,27 @@ pipeline {
         }
         
         stage('Build Docker Image') {
+            when { environment name: 'DOCKER_AVAILABLE', value: 'true' }
             steps {
                 echo 'Building Docker image...'
                 dir('backend') {
                     sh '''
-                        docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
-                        docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
-                        docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
+                        ${DOCKER_CMD} build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
+                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
                     '''
                 }
             }
         }
         
         stage('Test Docker Image') {
+            when { environment name: 'DOCKER_AVAILABLE', value: 'true' }
             steps {
                 echo 'Testing Docker image...'
                 script {
                     // Run container for testing
                     sh """
-                        docker run -d --name test-container-${BUILD_NUMBER} \
+                        ${DOCKER_CMD} run -d --name test-container-${BUILD_NUMBER} \
                             -p 8001:8000 \
                             -e DATABASE_URL=\${DATABASE_URL} \
                             -e SECRET_KEY=\${SECRET_KEY} \
@@ -203,8 +229,8 @@ pipeline {
                         curl -f http://localhost:8001/health || exit 1
                         
                         # Cleanup
-                        docker stop test-container-${BUILD_NUMBER}
-                        docker rm test-container-${BUILD_NUMBER}
+                        ${DOCKER_CMD} stop test-container-${BUILD_NUMBER}
+                        ${DOCKER_CMD} rm test-container-${BUILD_NUMBER}
                     """
                 }
             }
@@ -221,17 +247,17 @@ pipeline {
                 echo 'Pushing Docker image to registry...'
                 withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
-                        echo "$DOCKER_PASS" | docker login ${DOCKER_REGISTRY} -u "$DOCKER_USER" --password-stdin
+                        echo "$DOCKER_PASS" | ${DOCKER_CMD} login ${DOCKER_REGISTRY} -u "$DOCKER_USER" --password-stdin
 
-                        docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
-                        docker tag ${DOCKER_IMAGE}:latest ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
-                        docker tag ${DOCKER_IMAGE}:${GIT_COMMIT_HASH} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
+                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:latest ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
+                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:${GIT_COMMIT_HASH} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
 
-                        docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
-                        docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
-                        docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
+                        ${DOCKER_CMD} push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                        ${DOCKER_CMD} push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
+                        ${DOCKER_CMD} push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
 
-                        docker logout ${DOCKER_REGISTRY}
+                        ${DOCKER_CMD} logout ${DOCKER_REGISTRY}
                     '''
                 }
             }
