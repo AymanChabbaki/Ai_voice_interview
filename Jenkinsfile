@@ -1,19 +1,47 @@
+/*
+ * AI Voice Interview Backend - Jenkins CI/CD Pipeline
+ * 
+ * SETUP REQUIRED:
+ * 1. Install plugins: Docker Pipeline, Git, JUnit, HTML Publisher
+ * 2. Add credentials in Jenkins (see JENKINS_SETUP.md):
+ *    - ID: 'test-database-url' (Secret text)
+ *    - ID: 'test-secret-key' (Secret text)  
+ *    - ID: 'docker-credentials' (Username/Password) - for pushing images
+ * 3. Customize variables below as needed
+ */
+
 pipeline {
     agent any
     
     environment {
-        // Docker
-        DOCKER_IMAGE = 'ai-voice-interview-backend'
-        DOCKER_TAG = "${env.BUILD_NUMBER}"
-        DOCKER_REGISTRY = '' // Set your registry URL if using one (e.g., 'docker.io/username')
+        // ===================================================================
+        // CUSTOMIZE THESE VARIABLES
+        // ===================================================================
         
-        // Python
-        PYTHON_VERSION = '3.11'
-        VENV_PATH = "${WORKSPACE}/venv"
+        // Docker Configuration
+        DOCKER_IMAGE = 'ai-voice-interview-backend'  // Image name
+        DOCKER_TAG = "${env.BUILD_NUMBER}"            // Tag with build number
+        DOCKER_REGISTRY = ''                          // e.g., 'docker.io/yourusername' or 'registry.example.com'
         
-        // Test environment
-        DATABASE_URL = credentials('test-database-url') // Configure in Jenkins credentials
+        // Python Configuration
+        PYTHON_VERSION = '3.11'                       // Python version (3.10, 3.11, 3.12)
+        VENV_PATH = "${WORKSPACE}/venv"               // Virtual environment path
+        
+        // ===================================================================
+        // JENKINS CREDENTIALS (DO NOT MODIFY)
+        // Configure these in: Jenkins → Credentials → Add Credentials
+        // ===================================================================
+        
+        // Test Database URL - Add as "Secret text" with ID: test-database-url
+        // Example: postgresql://test_user:test_password@localhost:5432/test_interview_db
+        DATABASE_URL = credentials('test-database-url')
+        
+        // JWT Secret Key - Add as "Secret text" with ID: test-secret-key
+        // Example: test_secret_key_for_testing_only
         SECRET_KEY = credentials('test-secret-key')
+        
+        // Docker Registry Credentials - Add as "Username with password" with ID: docker-credentials
+        // Required only if DOCKER_REGISTRY is set and you want to push images
     }
     
     options {

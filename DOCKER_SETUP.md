@@ -1,6 +1,14 @@
 # Docker & CI/CD Setup Guide
 
-## 📦 Docker Files
+## � Related Documentation
+
+- **[JENKINS_QUICKSTART.md](JENKINS_QUICKSTART.md)** - 5-minute Jenkins credentials setup
+- **[JENKINS_SETUP.md](JENKINS_SETUP.md)** - Complete Jenkins pipeline configuration guide
+- **[DATABASE_SETUP.md](DATABASE_SETUP.md)** - PostgreSQL database setup for all environments
+
+---
+
+## �📦 Docker Files
 
 ### Files Created
 
