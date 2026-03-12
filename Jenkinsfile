@@ -67,10 +67,22 @@ pipeline {
                 echo 'Setting up Python virtual environment...'
                 dir('backend') {
                     sh '''
+                        # 1. Create a local temp folder to avoid filling up /tmp
+                        mkdir -p .pip_tmp
+                        export TMPDIR="${WORKSPACE}/backend/.pip_tmp"
+
+                        # 2. Setup venv
                         python${PYTHON_VERSION} -m venv ${VENV_PATH}
                         . ${VENV_PATH}/bin/activate
-                        pip install --upgrade pip
+
+                        # 3. Upgrade tools and fix the 'pkg_resources' issue for Pandas 2.0.3
+                        pip install --upgrade pip setuptools wheel
+
+                        # 4. Install requirements using the local temp folder
                         pip install -r requirements.txt
+
+                        # 5. Cleanup temp folder
+                        rm -rf .pip_tmp
                     '''
                 }
             }
