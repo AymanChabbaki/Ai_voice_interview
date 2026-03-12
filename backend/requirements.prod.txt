@@ -1,0 +1,30 @@
+# Production-only requirements (no test tools)
+# Python 3.10+
+
+# FastAPI core
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic[email]==2.10.6
+python-multipart==0.0.20
+
+# Auth
+python-jose[cryptography]==3.3.0
+bcrypt==4.2.1
+passlib[bcrypt]==1.7.4
+
+# Rate limiting
+slowapi==0.1.9
+
+# Database
+psycopg2-binary==2.9.9
+
+# AI / ML
+sentence-transformers==2.7.0
+torch==2.2.0
+torchvision==0.17.0
+scikit-learn==1.3.2
+numpy==1.26.4
+pandas>=2.1.1
+
+# Config
+python-dotenv==1.0.1

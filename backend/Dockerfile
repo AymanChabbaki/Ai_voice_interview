@@ -11,15 +11,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY requirements.prod.txt .
 
-# Install PyTorch CPU wheels first, then all requirements, then aggressively clean
+# Install PyTorch CPU wheels first, then production requirements only, then aggressively clean
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir \
       --index-url https://download.pytorch.org/whl/cpu \
       --extra-index-url https://pypi.org/simple \
       torch==2.2.0 torchvision==0.17.0 && \
-    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r requirements.prod.txt && \
     find /usr/local/lib/python3.11/site-packages -type f -name '*.pyc' -delete && \
     find /usr/local/lib/python3.11/site-packages -type d -name '__pycache__' -delete && \
     find /usr/local/lib/python3.11/site-packages -type d -name '*.dist-info' -exec rm -rf {} + 2>/dev/null || true && \

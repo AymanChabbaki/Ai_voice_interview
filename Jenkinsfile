@@ -201,16 +201,20 @@ pipeline {
                 echo 'Cleaning up Docker resources to free disk space...'
                 script {
                     sh '''
-                        # Prune stopped containers, dangling images, and unused build cache
+                        # Prune stopped containers, dangling images, unused volumes
                         ${DOCKER_CMD} system prune -af --volumes || true
-                        
-                        # Remove old images (keep only last 5)
-                        IMAGES_TO_DELETE=$(($(${DOCKER_CMD} images ${DOCKER_IMAGE} -q | wc -l) - 5))
+
+                        # Prune the build cache separately (largest space consumer)
+                        ${DOCKER_CMD} builder prune -af || true
+
+                        # Remove old images of this project (keep only last 3)
+                        IMAGES_TO_DELETE=$(($(${DOCKER_CMD} images ${DOCKER_IMAGE} -q | wc -l) - 3))
                         if [ $IMAGES_TO_DELETE -gt 0 ]; then
                             ${DOCKER_CMD} images ${DOCKER_IMAGE} -q | tail -n $IMAGES_TO_DELETE | xargs -r ${DOCKER_CMD} rmi -f || true
                         fi
-                        
-                        # Show disk usage after cleanup
+
+                        # Show remaining disk usage
+                        df -h || true
                         ${DOCKER_CMD} system df || true
                     '''
                 }
@@ -222,7 +226,7 @@ pipeline {
                 echo 'Building Docker image...'
                 dir('backend') {
                     sh '''
-                        ${DOCKER_CMD} build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                        ${DOCKER_CMD} build --no-cache -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
                         ${DOCKER_CMD} tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
                         ${DOCKER_CMD} tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
                     '''
