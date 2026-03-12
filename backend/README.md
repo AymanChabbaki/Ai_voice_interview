@@ -11,7 +11,13 @@ pip install -r requirements.txt
 # Start server
 python app.py
 ```
-
+```bash
+cd backend
+# Set RELOAD=false, WORKERS=4 (or 2*CPU+1) in .env
+python app.py
+# or directly:
+uvicorn app:app --host 0.0.0.0 --port 8000 --workers 4
+```
 ## API Documentation
 
 - Swagger UI: http://localhost:8000/docs
