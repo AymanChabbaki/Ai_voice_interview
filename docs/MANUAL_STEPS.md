@@ -125,7 +125,20 @@ a5f50e7551e6: Pushed
 latest: digest: sha256:a65d54d3017403bcbe6558c7a3fc914f7512322b5bf0afa4f1b8d7e65376207f size: 856
 
 
-
+The push refers to repository [docker.io/aymenexe/svi-backend]
+4d1e02f91db8: Pushed
+aecf3e6b3e04: Pushed
+f937e6e71171: Pushed
+ce7afba89736: Pushed
+206356c42440: Pushed
+44df7c9b0118: Pushed
+623df85cc3f0: Pushed
+98e22c324dcf: Pushed
+7fe6b2798913: Pushed
+f875d262a812: Pushed
+7187a497fe0b: Pushed
+latest: digest: sha256:fd61dd406125aaa64e7c1a4c6f7ad226ac6a854d1e3a1db335894579c94fc32b size: 856
+PS D:\Jira_Project> 
 ---
 
 ## Quick Reference — Credentials to Keep Safe
