@@ -4,11 +4,12 @@ PostgreSQL Database Layer – Smart Voice Interviewer
 
 import json
 import logging
-import os
 import uuid
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Dict, Generator, List, Optional
+import os
+from dotenv import load_dotenv
 
 import bcrypt
 import psycopg2
@@ -22,6 +23,7 @@ logger = logging.getLogger("smart_interviewer.db")
 # Configuration
 # ---------------------------------------------------------------------------
 
+load_dotenv()
 # DATABASE_URL must be set before init_db() is called.
 # Format: postgresql://user:password@host:5432/dbname
 DATABASE_URL: Optional[str] = os.getenv("DATABASE_URL")
@@ -344,4 +346,9 @@ def update_user_stats(user_id: str, stats_update: Dict) -> Optional[List[Dict]]:
 
     logger.debug("Stats updated | user=%s count=%d streak=%d", user_id, count, streak)
     return new_achievements
+
+if __name__ == "__main__":
+    print("Initializing database...")
+    init_db()
+    print("Database initialized successfully.")
 
