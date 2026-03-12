@@ -26,9 +26,9 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     # Remove C++ headers (not needed at runtime) - saves ~200 MB
     rm -rf /usr/local/lib/python3.11/site-packages/torch/include && \
     # Remove test directories from all packages - saves ~100 MB
-    find /usr/local/lib/python3.11/site-packages -type d -name 'tests'    -exec rm -rf {} + 2>/dev/null || true && \
-    find /usr/local/lib/python3.11/site-packages -type d -name 'test'     -exec rm -rf {} + 2>/dev/null || true && \
-    find /usr/local/lib/python3.11/site-packages -type d -name 'testing'  -exec rm -rf {} + 2>/dev/null || true && \
+    find /usr/local/lib/python3.11/site-packages -type d -name 'tests' -not -path '*/torch/*' -exec rm -rf {} + 2>/dev/null || true && \
+    find /usr/local/lib/python3.11/site-packages -type d -name 'test' -not -path '*/torch/*' -exec rm -rf {} + 2>/dev/null || true && \
+    find /usr/local/lib/python3.11/site-packages -type d -name 'testing' -not -path '*/torch/*' -exec rm -rf {} + 2>/dev/null || true && \
     # Remove torch benchmark / caffe2 / onnx extras not needed for inference
     rm -rf /usr/local/lib/python3.11/site-packages/torch/utils/benchmark && \
     rm -rf /usr/local/lib/python3.11/site-packages/caffe2 && \
