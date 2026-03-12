@@ -199,14 +199,44 @@ Jira_Project/
 
 ## Quick Start
 
-### 1. Clone the repository
+### Option 1: Docker (Recommended) 🐳
+
+The fastest way to get started with Docker and Docker Compose:
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd Ai_voice_interview
+
+# Copy environment file
+cp .env.example .env
+# Edit .env and set SECRET_KEY (generate with: openssl rand -hex 32)
+
+# Start all services (backend + database)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f backend
+
+# Access the API
+# Backend: http://localhost:8000
+# API Docs: http://localhost:8000/docs
+```
+
+**See [DOCKER_SETUP.md](DOCKER_SETUP.md) for detailed Docker and CI/CD documentation.**
+
+---
+
+### Option 2: Manual Setup
+
+#### 1. Clone the repository
 
 ```bash
 git clone <repository-url>
-cd Jira_Project
+cd Ai_voice_interview
 ```
 
-### 2. Set up the backend
+#### 2. Set up the backend
 
 ```bash
 cd backend
@@ -237,7 +267,7 @@ python app.py
 # Server is now running at http://localhost:8000
 ```
 
-### 3. Set up the frontend
+#### 3. Set up the frontend
 
 Open a second terminal:
 

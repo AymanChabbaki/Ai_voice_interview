@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: ai-interview-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-interview_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-interview_password}
+      POSTGRES_DB: ${POSTGRES_DB:-interview_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-interview_user} -d ${POSTGRES_DB:-interview_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-interview-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai-interview-backend
+    environment:
+      # Database (uses .env variables)
+      DATABASE_URL: ${DATABASE_URL:-postgresql://interview_user:interview_password@db:5432/interview_db}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      
+      # Security
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+      
+      # Interview settings
+      SIMILARITY_THRESHOLD: ${SIMILARITY_THRESHOLD:-0.6}
+      NUM_QUESTIONS: ${NUM_QUESTIONS:-3}
+      
+      # CORS
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      
+      # Server
+      PORT: ${PORT:-8000}
+      WORKERS: ${WORKERS:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - model_cache:/app/.cache
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - ai-interview-network
+    restart: unless-stopped
+
+  # Frontend (Optional - uncomment if you want to run frontend in Docker)
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: ai-interview-frontend
+  #   ports:
+  #     - "5173:5173"
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - ai-interview-network
+  #   restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  model_cache:
+    driver: local
+
+networks:
+  ai-interview-network:
+    driver: bridge
