@@ -21,7 +21,7 @@ pipeline {
         // Docker Configuration
         DOCKER_IMAGE = 'ai-voice-interview-backend'  // Image name
         DOCKER_TAG = "${env.BUILD_NUMBER}"            // Tag with build number
-        DOCKER_REGISTRY = ''                          // e.g., 'docker.io/yourusername' or 'registry.example.com'
+        DOCKER_REGISTRY = 'othmansalahi'                          // e.g., 'docker.io/yourusername' or 'registry.example.com'
         
         // Python Configuration
         PYTHON_VERSION = '3.12'                       // Python version (3.10, 3.11, 3.12)
@@ -75,14 +75,26 @@ pipeline {
                         python${PYTHON_VERSION} -m venv ${VENV_PATH}
                         . ${VENV_PATH}/bin/activate
 
-                        # 3. Upgrade tools and fix the 'pkg_resources' issue for Pandas 2.0.3
-                        pip install --upgrade pip setuptools wheel
+                                                # 3. Keep pip cache inside workspace and disable wheel caching to save disk
+                                                export PIP_CACHE_DIR="${WORKSPACE}/backend/.pip_cache"
+                                                export PIP_NO_CACHE_DIR=1
+                                                mkdir -p "${PIP_CACHE_DIR}"
 
-                        # 4. Install requirements using the local temp folder
-                        pip install -r requirements.txt
+                                                # 4. Upgrade tools and fix the 'pkg_resources' issue for Pandas 2.0.3
+                                                pip install --upgrade pip setuptools wheel --no-cache-dir
 
-                        # 5. Cleanup temp folder
+                                                # 5. Force CPU-only PyTorch wheels in CI to avoid huge CUDA downloads
+                                                pip install --no-cache-dir \
+                                                    --index-url https://download.pytorch.org/whl/cpu \
+                                                    --extra-index-url https://pypi.org/simple \
+                                                    torch==2.2.0 torchvision==0.17.0
+
+                                                # 6. Install all project requirements (torch/vision are already satisfied)
+                                                pip install --no-cache-dir -r requirements.txt
+
+                                                # 7. Cleanup temp and cache folders
                         rm -rf .pip_tmp
+                                                rm -rf .pip_cache
                     '''
                 }
             }
