@@ -77,10 +77,11 @@ pipeline {
                         env.DOCKER_AVAILABLE = 'true'
                         echo 'Docker accessible via sudo.'
                     } else {
-                        env.DOCKER_CMD       = ''
-                        env.DOCKER_AVAILABLE = 'false'
-                        echo 'WARNING: Docker not accessible - Docker stages will be skipped.'
-                        echo 'To fix: sudo usermod -aG docker jenkins && sudo systemctl restart jenkins'
+                        // Default to plain docker — stages will fail with a clear
+                        // permission error if not fixed on the agent.
+                        // Permanent fix: sudo usermod -aG docker jenkins && sudo systemctl restart jenkins
+                        env.DOCKER_CMD = 'docker'
+                        echo 'WARNING: could not verify docker access via sudo. Trying plain docker anyway.'
                     }
                 }
             }
@@ -196,7 +197,6 @@ pipeline {
         }
         
         stage('Build Docker Image') {
-            when { environment name: 'DOCKER_AVAILABLE', value: 'true' }
             steps {
                 echo 'Building Docker image...'
                 dir('backend') {
@@ -210,7 +210,6 @@ pipeline {
         }
         
         stage('Test Docker Image') {
-            when { environment name: 'DOCKER_AVAILABLE', value: 'true' }
             steps {
                 echo 'Testing Docker image...'
                 script {
