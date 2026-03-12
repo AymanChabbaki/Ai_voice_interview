@@ -13,6 +13,11 @@ frontend/.env
 frontend/.env.local
 frontend/.env.*.local
 
+# Allow test environment files (safe to commit)
+!.env.test
+!backend/.env.test
+!*/.env.test
+
 # IDE
 .vscode/
 .idea/
@@ -31,7 +36,6 @@ npm-debug.log
 # Build outputs
 /dist
 /build
-/backend
 /frontend/build
 /frontend/dist
 *.pyc
@@ -52,3 +56,13 @@ __pycache__/
 temp/
 /frontend/.cache/
 /frontend/coverage/
+
+# Test coverage reports
+htmlcov/
+.coverage
+.pytest_cache/
+*.cover
+
+# Docker
+docker-compose.override.yml
+.docker/
