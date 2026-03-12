@@ -175,16 +175,11 @@ pipeline {
             steps {
                 echo 'Building Docker image...'
                 dir('backend') {
-                    script {
-                        // Build Docker image
-                        dockerImage = docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
-                        
-                        // Tag as latest
-                        dockerImage.tag('latest')
-                        
-                        // Tag with git commit hash
-                        dockerImage.tag(env.GIT_COMMIT_HASH)
-                    }
+                    sh '''
+                        docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                        docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
+                        docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
+                    '''
                 }
             }
         }
@@ -217,17 +212,27 @@ pipeline {
         
         stage('Push Docker Image') {
             when {
-                branch 'main'
+                allOf {
+                    branch 'main'
+                    expression { env.DOCKER_REGISTRY?.trim() }
+                }
             }
             steps {
                 echo 'Pushing Docker image to registry...'
-                script {
-                    // This requires Docker registry credentials configured in Jenkins
-                    docker.withRegistry("https://${DOCKER_REGISTRY}", 'docker-credentials') {
-                        dockerImage.push("${DOCKER_TAG}")
-                        dockerImage.push('latest')
-                        dockerImage.push(env.GIT_COMMIT_HASH)
-                    }
+                withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login ${DOCKER_REGISTRY} -u "$DOCKER_USER" --password-stdin
+
+                        docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                        docker tag ${DOCKER_IMAGE}:latest ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
+                        docker tag ${DOCKER_IMAGE}:${GIT_COMMIT_HASH} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
+
+                        docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                        docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
+                        docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
+
+                        docker logout ${DOCKER_REGISTRY}
+                    '''
                 }
             }
         }
