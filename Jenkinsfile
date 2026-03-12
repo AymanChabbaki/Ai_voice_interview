@@ -24,7 +24,7 @@ pipeline {
         DOCKER_REGISTRY = ''                          // e.g., 'docker.io/yourusername' or 'registry.example.com'
         
         // Python Configuration
-        PYTHON_VERSION = '3.11'                       // Python version (3.10, 3.11, 3.12)
+        PYTHON_VERSION = '3.12'                       // Python version (3.10, 3.11, 3.12)
         VENV_PATH = "${WORKSPACE}/venv"               // Virtual environment path
         
         // ===================================================================
