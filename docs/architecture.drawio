@@ -1,0 +1,130 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36" version="29.6.1">
+  <diagram name="Smart Voice Interviewer – K8s Architecture" id="svi-k8s-arch">
+    <mxGraphModel dx="1603" dy="811" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" background="none" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="user" parent="1" style="ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" value="&lt;b&gt;User&lt;/b&gt;&lt;br/&gt;Browser" vertex="1">
+          <mxGeometry height="70" width="90" x="30" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="inet" parent="1" style="ellipse;shape=cloud;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=12;" value="&lt;b&gt;Internet&lt;/b&gt;" vertex="1">
+          <mxGeometry height="100" width="140" x="180" y="375" as="geometry" />
+        </mxCell>
+        <mxCell id="e-user-inet" edge="1" parent="1" source="user" target="inet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="aws-box" parent="1" style="rounded=1;arcSize=3;fillColor=#FFFDE7;strokeColor=#F9A825;strokeWidth=2;verticalAlign=top;fontSize=14;fontStyle=1;spacingTop=6;" value="&lt;b&gt;AWS Cloud — Free Tier&lt;/b&gt;" vertex="1">
+          <mxGeometry height="880" width="1260" x="370" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="master" parent="1" style="rounded=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=11;" value="&lt;b&gt;EC2 t3.micro&lt;/b&gt;&lt;br/&gt;K3s Master Node&lt;br/&gt;1 GB RAM" vertex="1">
+          <mxGeometry height="70" width="165" x="400" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="worker" parent="1" style="rounded=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=11;" value="&lt;b&gt;EC2 t3.micro&lt;/b&gt;&lt;br/&gt;K3s Worker Node&lt;br/&gt;1 GB RAM" vertex="1">
+          <mxGeometry height="70" width="165" x="400" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="e-nodes" edge="1" parent="1" source="master" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#E65100;fontSize=10;" target="worker" value="K3s internal network">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="k8s-box" parent="1" style="rounded=1;arcSize=3;dashed=1;strokeColor=#1565C0;strokeWidth=2;fillColor=#E3F2FD;verticalAlign=top;fontSize=13;fontStyle=1;spacingTop=6;" value="&lt;b&gt;Kubernetes Cluster (K3s)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="800" width="990" x="620" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="fe-svc" parent="1" style="rounded=1;fillColor=#FFF9C4;strokeColor=#F9A825;fontSize=11;" value="&lt;b&gt;frontend-service&lt;/b&gt;&lt;br/&gt;NodePort · port 80" vertex="1">
+          <mxGeometry height="60" width="190" x="650" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="fe-pod" parent="1" style="rounded=1;fillColor=#C8E6C9;strokeColor=#2E7D32;fontSize=11;" value="&lt;b&gt;React Frontend Pod&lt;/b&gt;&lt;br/&gt;Deployment · 1 replica&lt;br/&gt;Image: nginx:alpine" vertex="1">
+          <mxGeometry height="75" width="190" x="650" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="e-fe-svc-pod" edge="1" parent="1" source="fe-svc" style="edgeStyle=orthogonalEdgeStyle;" target="fe-pod">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="be-svc" parent="1" style="rounded=1;fillColor=#FFF9C4;strokeColor=#F9A825;fontSize=11;" value="&lt;b&gt;backend-service&lt;/b&gt;&lt;br/&gt;ClusterIP · port 8000" vertex="1">
+          <mxGeometry height="60" width="200" x="920" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="be-pod" parent="1" style="rounded=1;fillColor=#C8E6C9;strokeColor=#2E7D32;fontSize=11;" value="&lt;b&gt;FastAPI Backend Pod&lt;/b&gt;&lt;br/&gt;Deployment · 1 replica&lt;br/&gt;Python 3.10 + SBERT" vertex="1">
+          <mxGeometry height="75" width="200" x="920" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="e-be-svc-pod" edge="1" parent="1" source="be-svc" style="edgeStyle=orthogonalEdgeStyle;" target="be-pod">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="secret" parent="1" style="rounded=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=11;" value="&lt;b&gt;db-secret&lt;/b&gt;&lt;br/&gt;Kind: Secret&lt;br/&gt;DATABASE_URL&lt;br/&gt;POSTGRES_PASSWORD&lt;br/&gt;SECRET_KEY" vertex="1">
+          <mxGeometry height="95" width="200" x="920" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="e-sec-be" edge="1" parent="1" source="secret" style="dashed=1;endArrow=open;startArrow=none;fontStyle=2;fontSize=10;edgeStyle=orthogonalEdgeStyle;strokeColor=#E65100;" target="be-pod" value="envFrom">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="db-svc" parent="1" style="rounded=1;fillColor=#FFF9C4;strokeColor=#F9A825;fontSize=11;" value="&lt;b&gt;db-service&lt;/b&gt;&lt;br/&gt;ClusterIP · port 5432" vertex="1">
+          <mxGeometry height="60" width="200" x="1200" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="db-pod" parent="1" style="shape=cylinder3;whiteSpace=wrap;fillColor=#C8E6C9;strokeColor=#2E7D32;fontSize=11;" value="&lt;b&gt;PostgreSQL Pod&lt;/b&gt;&lt;br/&gt;StatefulSet · 1 replica&lt;br/&gt;postgres:15-alpine" vertex="1">
+          <mxGeometry height="90" width="200" x="1200" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="e-db-svc-pod" edge="1" parent="1" source="db-svc" style="edgeStyle=orthogonalEdgeStyle;" target="db-pod">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-sec-db" edge="1" parent="1" source="secret" style="dashed=1;endArrow=open;startArrow=none;fontStyle=2;fontSize=10;edgeStyle=orthogonalEdgeStyle;strokeColor=#E65100;" target="db-pod" value="envFrom">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pvc" parent="1" style="shape=parallelogram;perimeter=parallelogramPerimeter;fillColor=#FFCDD2;strokeColor=#C62828;fontSize=11;" value="&lt;b&gt;db-pvc&lt;/b&gt;&lt;br/&gt;PersistentVolumeClaim&lt;br/&gt;10 Gi · ReadWriteOnce" vertex="1">
+          <mxGeometry height="70" width="200" x="1200" y="480" as="geometry" />
+        </mxCell>
+        <mxCell id="e-pod-pvc" edge="1" parent="1" source="db-pod" style="edgeStyle=orthogonalEdgeStyle;" target="pvc">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pv" parent="1" style="shape=cylinder3;whiteSpace=wrap;fillColor=#EF9A9A;strokeColor=#C62828;fontSize=11;" value="&lt;b&gt;PersistentVolume&lt;/b&gt;&lt;br/&gt;AWS EBS Volume&lt;br/&gt;10 Gi · reclaimPolicy: Retain" vertex="1">
+          <mxGeometry height="90" width="200" x="1200" y="640" as="geometry" />
+        </mxCell>
+        <mxCell id="e-pvc-pv" edge="1" parent="1" source="pvc" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" target="pv" value="bound">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-inet-fe" edge="1" parent="1" source="inet" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="fe-svc" value="HTTP :80">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-fe-be" edge="1" parent="1" source="fe-pod" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" target="be-svc" value="REST :8000">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-be-db" edge="1" parent="1" source="be-pod" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;" target="db-svc" value="psycopg2 :5432">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-box" parent="1" style="rounded=1;fillColor=#F5F5F5;strokeColor=#666666;fontSize=12;fontStyle=1;verticalAlign=top;spacingTop=6;" value="&lt;b&gt;Legend&lt;/b&gt;" vertex="1">
+          <mxGeometry height="185" width="185" x="400" y="540" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-box" parent="1" style="rounded=1;fillColor=#FFF9C4;strokeColor=#F9A825;" value="" vertex="1">
+          <mxGeometry height="18" width="28" x="415" y="572" as="geometry" />
+        </mxCell>
+        <mxCell id="l1-txt" parent="1" style="text;fontSize=11;align=left;" value="Kubernetes Service" vertex="1">
+          <mxGeometry height="22" width="125" x="453" y="569" as="geometry" />
+        </mxCell>
+        <mxCell id="l2-box" parent="1" style="rounded=1;fillColor=#C8E6C9;strokeColor=#2E7D32;" value="" vertex="1">
+          <mxGeometry height="18" width="28" x="415" y="600" as="geometry" />
+        </mxCell>
+        <mxCell id="l2-txt" parent="1" style="text;fontSize=11;align=left;" value="Pod / Container" vertex="1">
+          <mxGeometry height="22" width="125" x="453" y="597" as="geometry" />
+        </mxCell>
+        <mxCell id="l3-box" parent="1" style="rounded=1;fillColor=#FFE0B2;strokeColor=#E65100;" value="" vertex="1">
+          <mxGeometry height="18" width="28" x="415" y="628" as="geometry" />
+        </mxCell>
+        <mxCell id="l3-txt" parent="1" style="text;fontSize=11;align=left;" value="EC2 Node / Secret" vertex="1">
+          <mxGeometry height="22" width="125" x="453" y="625" as="geometry" />
+        </mxCell>
+        <mxCell id="l4-box" parent="1" style="shape=parallelogram;fillColor=#FFCDD2;strokeColor=#C62828;" value="" vertex="1">
+          <mxGeometry height="18" width="28" x="415" y="656" as="geometry" />
+        </mxCell>
+        <mxCell id="l4-txt" parent="1" style="text;fontSize=11;align=left;" value="PersistentVolumeClaim" vertex="1">
+          <mxGeometry height="22" width="125" x="453" y="653" as="geometry" />
+        </mxCell>
+        <mxCell id="l5-box" parent="1" style="shape=cylinder3;whiteSpace=wrap;fillColor=#EF9A9A;strokeColor=#C62828;" value="" vertex="1">
+          <mxGeometry height="18" width="28" x="415" y="684" as="geometry" />
+        </mxCell>
+        <mxCell id="l5-txt" parent="1" style="text;fontSize=11;align=left;" value="PersistentVolume (EBS)" vertex="1">
+          <mxGeometry height="22" width="130" x="453" y="681" as="geometry" />
+        </mxCell>
+        <mxCell id="l6-box" parent="1" style="dashed=1;endArrow=open;strokeColor=#E65100;" value="" vertex="1">
+          <mxGeometry height="18" width="28" x="415" y="712" as="geometry" />
+        </mxCell>
+        <mxCell id="l6-txt" parent="1" style="text;fontSize=11;align=left;" value="Secret injection (envFrom)" vertex="1">
+          <mxGeometry height="22" width="130" x="453" y="709" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

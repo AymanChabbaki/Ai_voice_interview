@@ -1,0 +1,32 @@
+# ── Backend ───────────────────────────────────────────────────────────────────
+# Python bytecode / caches
+backend/__pycache__/
+backend/*.py[cod]
+backend/.pytest_cache/
+backend/.venv/
+backend/venv/
+backend/.env
+# SQLite remnant (no longer used, guarding just in case)
+backend/interview_system.db
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# ── Root-level env files ──────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── OS / IDE artefacts ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# ── Docker / compose ─────────────────────────────────────────────────────────
+docker-compose.override.yml
