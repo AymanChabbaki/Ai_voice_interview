@@ -33,7 +33,6 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     rm -rf /usr/local/lib/python3.11/site-packages/torch/utils/benchmark && \
     rm -rf /usr/local/lib/python3.11/site-packages/caffe2 && \
     # Remove dist-info (metadata only, not needed at runtime)
-    find /usr/local/lib/python3.11/site-packages -maxdepth 1 -type d -name '*.dist-info' -exec rm -rf {} + 2>/dev/null || true && \
     rm -rf /root/.cache /tmp/* /var/tmp/*
 
 # Final stage - minimal runtime image
