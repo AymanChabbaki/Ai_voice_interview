@@ -1,10 +1,9 @@
-# Multi-stage build for optimized image size
+# Multi-stage build
 FROM python:3.11-slim AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Install only essential build tools
+# Install build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
@@ -13,65 +12,54 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy requirements first for better caching
 COPY requirements.prod.txt .
 
-# Install PyTorch CPU wheels first, then production requirements only, then aggressively clean
+# Install PyTorch CPU + all requirements
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir \
       --index-url https://download.pytorch.org/whl/cpu \
       --extra-index-url https://pypi.org/simple \
       torch==2.2.0 torchvision==0.17.0 && \
     pip install --no-cache-dir -r requirements.prod.txt && \
-    # Remove .pyc files and __pycache__ dirs
+    # Safe cleanup only - remove .pyc files and pip cache
     find /usr/local/lib/python3.11/site-packages -type f -name '*.pyc' -delete && \
     find /usr/local/lib/python3.11/site-packages -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true && \
-    # Remove C++ headers (not needed at runtime) - saves ~200 MB
+    # Remove torch C++ headers (not needed at runtime) - saves ~200MB
     rm -rf /usr/local/lib/python3.11/site-packages/torch/include && \
-    # Remove test directories from all packages - saves ~100 MB
-    find /usr/local/lib/python3.11/site-packages -type d -name 'tests' -not -path '*/torch/*' -exec rm -rf {} + 2>/dev/null || true && \
-    find /usr/local/lib/python3.11/site-packages -type d -name 'test' -not -path '*/torch/*' -exec rm -rf {} + 2>/dev/null || true && \
-    find /usr/local/lib/python3.11/site-packages -type d -name 'testing' -not -path '*/torch/*' -exec rm -rf {} + 2>/dev/null || true && \
-    # Remove torch benchmark / caffe2 / onnx extras not needed for inference
-    rm -rf /usr/local/lib/python3.11/site-packages/torch/utils/benchmark && \
+    # Remove caffe2 (not needed for inference)
     rm -rf /usr/local/lib/python3.11/site-packages/caffe2 && \
-    # Remove dist-info (metadata only, not needed at runtime)
+    # Clean pip/tmp cache
     rm -rf /root/.cache /tmp/* /var/tmp/*
 
 # Final stage - minimal runtime image
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install only runtime dependencies (postgres client if needed for health checks)
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed packages from builder - only site-packages
+# Copy installed packages from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
 # Copy application code
 COPY . .
 
-# Create directory for models cache
+# Create cache directory and clean up dev artifacts
 RUN mkdir -p /app/.cache && chmod 777 /app/.cache && \
     rm -rf /app/__pycache__ /app/.git /app/.pytest_cache /app/htmlcov /app/tests
 
-# Set environment variables
+# Environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PORT=8000 \
     WORKERS=1 \
     LOG_LEVEL=info
 
-# Expose port
 EXPOSE 8000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the application
-
-# Run the application
 CMD ["python", "app.py"]
