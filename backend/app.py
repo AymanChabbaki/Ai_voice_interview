@@ -65,7 +65,7 @@ KNOWLEDGE_BASE_FILE = os.getenv("KB_FILE",      os.path.join(BASE_DIR, "final_kn
 COURSE_CATALOG_FILE = os.getenv("COURSES_FILE", os.path.join(BASE_DIR, "course_catalog.csv"))
 
 ALLOWED_ORIGINS: List[str] = [
-    o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",") if o.strip()
+    o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8082").split(",") if o.strip()
 ]
 
 # ---------------------------------------------------------------------------
