@@ -66,18 +66,18 @@ services:
     restart: unless-stopped
 
   # Frontend (Optional - uncomment if you want to run frontend in Docker)
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   container_name: ai-interview-frontend
-  #   ports:
-  #     - "5173:5173"
-  #   depends_on:
-  #     - backend
-  #   networks:
-  #     - ai-interview-network
-  #   restart: unless-stopped
+    frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ai-interview-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - ai-interview-network
+    restart: unless-stopped
 
 volumes:
   postgres_data:
