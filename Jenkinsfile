@@ -1,34 +1,24 @@
-/*
- * AI Voice Interview Backend - Jenkins CI/CD Pipeline
- * 
- * SETUP REQUIRED:
- * 1. Install plugins: Docker Pipeline, Git, JUnit, HTML Publisher
- * 2. Add credentials in Jenkins (see JENKINS_SETUP.md):
- *    - ID: 'test-database-url' (Secret text)
- *    - ID: 'test-secret-key' (Secret text)  
- *    - ID: 'docker-credentials' (Username/Password) - for pushing images
- * 3. Customize variables below as needed
- */
-
 pipeline {
     agent any
-    
+
     environment {
         DOCKER_IMAGE    = 'ai-voice-interview-backend'
         DOCKER_TAG      = "${env.BUILD_NUMBER}"
         DOCKER_REGISTRY = 'othmansalahi'
-        PYTHON_VERSION  = '3.12'
+        PYTHON_VERSION  = '3.11'
         VENV_PATH       = "${WORKSPACE}/venv"
         DATABASE_URL    = credentials('test-database-url')
         SECRET_KEY      = credentials('test-secret-key')
+        DEPLOY_SERVER   = 'server-1'
+        DEPLOY_USER     = 'sadmad'
     }
-    
+
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         timestamps()
         timeout(time: 60, unit: 'MINUTES')
     }
-    
+
     stages {
 
         stage('Checkout') {
@@ -55,7 +45,7 @@ pipeline {
                         echo 'Docker accessible via sudo.'
                     } else {
                         env.DOCKER_CMD = 'docker'
-                        echo 'WARNING: could not verify docker access. Trying plain docker anyway.'
+                        echo 'WARNING: could not verify docker access.'
                     }
                 }
             }
@@ -66,19 +56,12 @@ pipeline {
                 echo 'Setting up Python virtual environment...'
                 dir('backend') {
                     sh '''
-                        # Create venv
-                        python${PYTHON_VERSION} -m venv ${VENV_PATH} --clear
-
-                        # Use venv pip directly to avoid system pip restrictions
+                        python3.11 -m venv ${VENV_PATH} --clear
                         ${VENV_PATH}/bin/pip install --upgrade pip setuptools wheel --no-cache-dir
-
-                        # Install CPU-only PyTorch to avoid huge CUDA downloads
                         ${VENV_PATH}/bin/pip install --no-cache-dir \
                             --index-url https://download.pytorch.org/whl/cpu \
                             --extra-index-url https://pypi.org/simple \
                             torch==2.2.0 torchvision==0.17.0
-
-                        # Install all project requirements
                         ${VENV_PATH}/bin/pip install --no-cache-dir -r requirements.txt
                     '''
                 }
@@ -96,15 +79,11 @@ pipeline {
 
         stage('Lint & Code Quality') {
             steps {
-                echo 'Running linters and code quality checks...'
+                echo 'Running linters...'
                 dir('backend') {
                     sh '''
                         ${VENV_PATH}/bin/pip install flake8 black --no-cache-dir
-
-                        # Syntax and critical errors only
                         ${VENV_PATH}/bin/flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
-
-                        # Code formatting check
                         ${VENV_PATH}/bin/black --check . || true
                     '''
                 }
@@ -122,7 +101,7 @@ pipeline {
 
         stage('Build Frontend') {
             steps {
-                echo 'Building frontend application...'
+                echo 'Building frontend...'
                 dir('frontend') {
                     sh 'npm run build'
                 }
@@ -131,7 +110,7 @@ pipeline {
 
         stage('Run Backend Tests') {
             steps {
-                echo 'Running backend test suite...'
+                echo 'Running backend tests...'
                 dir('backend') {
                     sh '''
                         ${VENV_PATH}/bin/pytest -v -m "not database" \
@@ -160,7 +139,7 @@ pipeline {
 
         stage('Security Scan') {
             steps {
-                echo 'Running security vulnerability scan...'
+                echo 'Running security scan...'
                 dir('backend') {
                     sh '''
                         ${VENV_PATH}/bin/pip install safety --no-cache-dir
@@ -172,42 +151,36 @@ pipeline {
 
         stage('Cleanup Docker Resources') {
             steps {
-                echo 'Cleaning up Docker resources...'
                 sh '''
                     ${DOCKER_CMD} system prune -af --volumes || true
                     ${DOCKER_CMD} builder prune -af || true
-
-                    # Keep only last 3 images of this project
-                    IMAGES_TO_DELETE=$(($(${DOCKER_CMD} images ${DOCKER_IMAGE} -q | wc -l) - 3))
-                    if [ $IMAGES_TO_DELETE -gt 0 ]; then
-                        ${DOCKER_CMD} images ${DOCKER_IMAGE} -q | tail -n $IMAGES_TO_DELETE | xargs -r ${DOCKER_CMD} rmi -f || true
-                    fi
-
                     df -h || true
                     ${DOCKER_CMD} system df || true
                 '''
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build Docker Images') {
             steps {
-                echo 'Building Docker image...'
-                dir('backend') {
-                    sh '''
-                        ${DOCKER_CMD} build --no-cache -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
-                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
-                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
-                    '''
-                }
+                echo 'Building Docker images...'
+                sh '''
+                    ${DOCKER_CMD} build --no-cache \
+                        -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} \
+                        -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest \
+                        ./backend
+
+                    ${DOCKER_CMD} build --no-cache \
+                        -t ${DOCKER_REGISTRY}/ai-voice-interview-frontend:${DOCKER_TAG} \
+                        -t ${DOCKER_REGISTRY}/ai-voice-interview-frontend:latest \
+                        ./frontend
+                '''
             }
         }
 
         stage('Test Docker Image') {
             steps {
-                echo 'Testing Docker image...'
                 script {
                     sh """
-                        # Start postgres if not running
                         ${DOCKER_CMD} network create interview-network 2>/dev/null || true
 
                         ${DOCKER_CMD} run -d --name test-postgres-${BUILD_NUMBER} \
@@ -217,21 +190,16 @@ pipeline {
                             -e POSTGRES_DB=interview_db \
                             postgres:15
 
-                        # Wait for postgres to be ready
                         sleep 30
 
-                        # Run backend container
                         ${DOCKER_CMD} run -d --name test-container-${BUILD_NUMBER} \
                             --network interview-network \
                             -p 8001:8000 \
                             -e DATABASE_URL=postgresql://interview_user:interview_password@test-postgres-${BUILD_NUMBER}:5432/interview_db \
                             -e SECRET_KEY=\${SECRET_KEY} \
-                            ${DOCKER_IMAGE}:${DOCKER_TAG}
+                            ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
 
-                        # Wait for app to start and model to load
                         sleep 50
-
-                        # Test health endpoint
                         curl -f http://localhost:8001/health || exit 1
                     """
                 }
@@ -243,31 +211,31 @@ pipeline {
                         ${DOCKER_CMD} rm test-container-${BUILD_NUMBER} 2>/dev/null || true
                         ${DOCKER_CMD} stop test-postgres-${BUILD_NUMBER} 2>/dev/null || true
                         ${DOCKER_CMD} rm test-postgres-${BUILD_NUMBER} 2>/dev/null || true
+                        ${DOCKER_CMD} network rm interview-network 2>/dev/null || true
                     """
                 }
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Push Docker Images') {
             when {
-                allOf {
-                    branch 'main'
-                    expression { env.DOCKER_REGISTRY?.trim() }
-                }
+                branch 'sadmad'
             }
             steps {
-                echo 'Pushing Docker image to registry...'
-                withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                echo 'Pushing images to Docker Hub...'
+                withCredentials([usernamePassword(
+                    credentialsId: 'docker-credentials',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
                     sh '''
                         echo "$DOCKER_PASS" | ${DOCKER_CMD} login -u "$DOCKER_USER" --password-stdin
 
-                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
-                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:latest ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
-                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:${GIT_COMMIT_HASH} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
-
                         ${DOCKER_CMD} push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
                         ${DOCKER_CMD} push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
-                        ${DOCKER_CMD} push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
+
+                        ${DOCKER_CMD} push ${DOCKER_REGISTRY}/ai-voice-interview-frontend:${DOCKER_TAG}
+                        ${DOCKER_CMD} push ${DOCKER_REGISTRY}/ai-voice-interview-frontend:latest
 
                         ${DOCKER_CMD} logout
                     '''
@@ -275,20 +243,21 @@ pipeline {
             }
         }
 
-        stage('Deploy to Staging') {
-            when { branch 'develop' }
-            steps {
-                echo 'Deploying to staging environment...'
-                sh 'echo "Add staging deployment commands here"'
+        stage('Deploy to server-1') {
+            when {
+                branch 'sadmad'
             }
-        }
-
-        stage('Deploy to Production') {
-            when { branch 'main' }
             steps {
-                echo 'Deploying to production environment...'
-                input message: 'Deploy to Production?', ok: 'Deploy'
-                sh 'echo "Add production deployment commands here"'
+                echo 'Deploying to server-1 via SSH...'
+                sh """
+                    ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
+                        cd /home/sadmad/app &&
+                        docker-compose pull &&
+                        docker-compose down &&
+                        docker-compose up -d &&
+                        docker-compose ps
+                    '
+                """
             }
         }
     }
