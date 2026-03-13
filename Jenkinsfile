@@ -218,7 +218,7 @@ pipeline {
                             postgres:15
 
                         # Wait for postgres to be ready
-                        sleep 10
+                        sleep 30
 
                         # Run backend container
                         ${DOCKER_CMD} run -d --name test-container-${BUILD_NUMBER} \
@@ -229,7 +229,7 @@ pipeline {
                             ${DOCKER_IMAGE}:${DOCKER_TAG}
 
                         # Wait for app to start and model to load
-                        sleep 30
+                        sleep 50
 
                         # Test health endpoint
                         curl -f http://localhost:8001/health || exit 1
