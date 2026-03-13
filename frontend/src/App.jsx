@@ -183,6 +183,11 @@ function App() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    if (authForm.password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      setLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch(`${API_BASE_URL}/register`, {
@@ -1866,8 +1871,8 @@ function App() {
                       value={authForm.password}
                       onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
                       required
-                      minLength="6"
-                      placeholder="At least 6 characters"
+                      minLength="8"
+                      placeholder="At least 8 characters"
                     />
                   </div>
                   <div className="form-group">
