@@ -347,10 +347,10 @@ pipeline {
                         sudo kubectl rollout restart deployment/frontend -n ${K8S_NAMESPACE} &&
 
                         echo "=== Waiting for rollouts to complete ===" &&
-                        sudo kubectl rollout status deployment/backend  \
-                            -n ${K8S_NAMESPACE} --timeout=120s &&
-                        sudo kubectl rollout status deployment/frontend \
-                            -n ${K8S_NAMESPACE} --timeout=120s &&
+                        kubectl rollout status deployment/backend \
+                            -n ${K8S_NAMESPACE} --timeout=600s &&
+                        kubectl rollout status deployment/frontend \
+                            -n ${K8S_NAMESPACE} --timeout=200s &&
 
                         echo "=== Deployment complete ===" &&
                         echo "--- Pods ---" &&
