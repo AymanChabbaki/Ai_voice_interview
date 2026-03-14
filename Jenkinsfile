@@ -2,24 +2,25 @@ pipeline {
     agent any
 
     environment {
-        // Docker
-        DOCKER_REGISTRY        = 'othmansalahi'
-        DOCKER_IMAGE_BACKEND   = "${DOCKER_REGISTRY}/ai-voice-interview-backend"
-        DOCKER_IMAGE_FRONTEND  = "${DOCKER_REGISTRY}/ai-voice-interview-frontend"
-        DOCKER_TAG             = "${env.BUILD_NUMBER}"
+        // Docker Hub
+        DOCKER_REGISTRY       = 'othmansalahi'
+        DOCKER_IMAGE_BACKEND  = "${DOCKER_REGISTRY}/ai-voice-interview-backend"
+        DOCKER_IMAGE_FRONTEND = "${DOCKER_REGISTRY}/ai-voice-interview-frontend"
+        DOCKER_TAG            = "${env.BUILD_NUMBER}"
 
         // Python
-        PYTHON_VERSION         = '3.11'
-        VENV_PATH              = "${WORKSPACE}/venv"
+        PYTHON_VERSION        = '3.11'
+        VENV_PATH             = "${WORKSPACE}/venv"
 
         // Credentials
-        DATABASE_URL           = credentials('test-database-url')
-        SECRET_KEY             = credentials('test-secret-key')
+        DATABASE_URL          = credentials('test-database-url')
+        SECRET_KEY            = credentials('test-secret-key')
 
-        // Deployment
-        DEPLOY_USER            = 'sadmad'
-        DEPLOY_SERVER          = 'server-1'
-        DEPLOY_PATH            = '/home/sadmad/app'
+        // Kubernetes
+        DEPLOY_USER           = 'sadmad'
+        K8S_MASTER            = 'server-3'
+        K8S_NAMESPACE         = 'ai-interview'
+        K8S_MANIFESTS_PATH    = '/home/sadmad/k8s'
     }
 
     options {
@@ -233,7 +234,6 @@ pipeline {
                     sh """
                         ${DOCKER_CMD} network create interview-test-network-${BUILD_NUMBER} 2>/dev/null || true
 
-                        # Start test database
                         ${DOCKER_CMD} run -d \
                             --name test-postgres-${BUILD_NUMBER} \
                             --network interview-test-network-${BUILD_NUMBER} \
@@ -241,11 +241,10 @@ pipeline {
                             -e POSTGRES_PASSWORD=interview_password \
                             -e POSTGRES_DB=interview_db \
                             postgres:15
-                        
+
                         echo "Waiting for database to be ready..."
                         sleep 30
 
-                        # Start backend container
                         ${DOCKER_CMD} run -d \
                             --name test-backend-${BUILD_NUMBER} \
                             --network interview-test-network-${BUILD_NUMBER} \
@@ -257,7 +256,6 @@ pipeline {
                         echo "Waiting for backend to start and load AI model..."
                         sleep 50
 
-                        # Health check
                         echo "Running health check..."
                         curl -f http://localhost:8001/health || exit 1
                         echo "Health check passed!"
@@ -309,39 +307,58 @@ pipeline {
         }
 
         // ─────────────────────────────────────────
-        stage('Deploy to server-1') {
+        stage('Deploy to Kubernetes') {
         // ─────────────────────────────────────────
-            when { branch 'sadmad' }
             steps {
-                echo 'Deploying to server-1...'
+                echo 'Deploying to K3s Kubernetes cluster...'
                 sh """
-                    # Create app directory on server-1 if it doesn't exist
-                    ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} \
-                        'mkdir -p ${DEPLOY_PATH}'
+                    # Create k8s directory on master
+                    ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${K8S_MASTER} \
+                        'mkdir -p ${K8S_MANIFESTS_PATH}'
 
-                    # Copy latest docker-compose.yml to server-1
-                    scp -o StrictHostKeyChecking=no \
-                        docker-compose.yml \
-                        ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_PATH}/docker-compose.yml
+                    # Copy all k8s manifests to server-3
+                    scp -o StrictHostKeyChecking=no -r k8s/ \
+                        ${DEPLOY_USER}@${K8S_MASTER}:${K8S_MANIFESTS_PATH}/
 
-                    # Copy .env file if it exists
-                    if [ -f .env ]; then
-                        scp -o StrictHostKeyChecking=no \
-                            .env \
-                            ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_PATH}/.env
-                    fi
+                    # Apply manifests and deploy
+                    ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${K8S_MASTER} '
 
-                    # Deploy on server-1
-                    ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
-                        cd ${DEPLOY_PATH} &&
-                        echo "Pulling latest images..." &&
-                        docker-compose pull &&
-                        echo "Stopping old containers..." &&
-                        docker-compose down &&
-                        echo "Starting new containers..." &&
-                        docker-compose up -d &&
-                        echo "Deployment status:" &&
-                        docker-compose ps
+                        echo "=== Creating namespace ===" &&
+                        sudo kubectl apply -f ${K8S_MANIFESTS_PATH}/k8s/namespace.yaml &&
+
+                        echo "=== Applying secrets ===" &&
+                        sudo kubectl apply -f ${K8S_MANIFESTS_PATH}/k8s/secrets.yaml &&
+
+                        echo "=== Deploying database ===" &&
+                        sudo kubectl apply -f ${K8S_MANIFESTS_PATH}/k8s/db-deployment.yaml &&
+
+                        echo "=== Waiting for database ===" &&
+                        sudo kubectl rollout status deployment/postgres \
+                            -n ${K8S_NAMESPACE} --timeout=60s &&
+
+                        echo "=== Deploying backend ===" &&
+                        sudo kubectl apply -f ${K8S_MANIFESTS_PATH}/k8s/backend-deployment.yaml &&
+
+                        echo "=== Deploying frontend ===" &&
+                        sudo kubectl apply -f ${K8S_MANIFESTS_PATH}/k8s/frontend-deployment.yaml &&
+
+                        echo "=== Restarting deployments to pull latest images ===" &&
+                        sudo kubectl rollout restart deployment/backend  -n ${K8S_NAMESPACE} &&
+                        sudo kubectl rollout restart deployment/frontend -n ${K8S_NAMESPACE} &&
+
+                        echo "=== Waiting for rollouts to complete ===" &&
+                        sudo kubectl rollout status deployment/backend  \
+                            -n ${K8S_NAMESPACE} --timeout=120s &&
+                        sudo kubectl rollout status deployment/frontend \
+                            -n ${K8S_NAMESPACE} --timeout=120s &&
+
+                        echo "=== Deployment complete ===" &&
+                        echo "--- Pods ---" &&
+                        sudo kubectl get pods -n ${K8S_NAMESPACE} &&
+                        echo "--- Services ---" &&
+                        sudo kubectl get services -n ${K8S_NAMESPACE} &&
+                        echo "--- Nodes ---" &&
+                        sudo kubectl get nodes
                     '
                 """
             }
@@ -358,14 +375,31 @@ pipeline {
         success {
             echo '''
             ✅ Pipeline completed successfully!
-            - Images pushed to Docker Hub
-            - App deployed to server-1
+            ─────────────────────────────────
+            ✔ Code checked out
+            ✔ Python environment set up
+            ✔ Frontend built
+            ✔ Tests passed
+            ✔ Security scan done
+            ✔ Docker images built and pushed
+            ✔ App deployed to Kubernetes
+            ─────────────────────────────────
+            Frontend: http://192.168.174.146:30080
+            Backend:  http://192.168.174.146:8000
+            Frontend: http://192.168.174.147:30080
+            Backend:  http://192.168.174.147:8000
             '''
         }
         failure {
             echo '''
             ❌ Pipeline failed!
-            - Check the logs above for details
+            ─────────────────────────────────
+            Check the logs above for details.
+            Common issues:
+            - Docker build failed
+            - Tests failed
+            - K8s deployment failed
+            ─────────────────────────────────
             '''
         }
     }
