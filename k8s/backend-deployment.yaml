@@ -43,27 +43,36 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "info"
+            - name: ALLOWED_ORIGINS         # ← add here
+              valueFrom:
+                secretKeyRef:
+                  name: ai-interview-secrets
+                  key: allowed-origins
+            - name: KB_FILE
+              value: "/app/final_knowledge_base.csv"
+            - name: COURSES_FILE
+              value: "/app/course_catalog.csv"
           livenessProbe:
             httpGet:
               path: /health
               port: 8000
-            initialDelaySeconds: 60
+            initialDelaySeconds: 120
             periodSeconds: 30
-            failureThreshold: 3
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /health
               port: 8000
-            initialDelaySeconds: 60
-            periodSeconds: 10
-            failureThreshold: 3
+            initialDelaySeconds: 120
+            periodSeconds: 15
+            failureThreshold: 5
           resources:
             requests:
-              memory: "512Mi"
+              memory: "768Mi"
               cpu: "250m"
             limits:
-              memory: "1Gi"
-              cpu: "500m"
+              memory: "1.5Gi"
+              cpu: "750m"
 ---
 apiVersion: v1
 kind: Service
