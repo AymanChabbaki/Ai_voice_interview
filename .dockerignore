@@ -1,0 +1,153 @@
+# ─────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+backend/__pycache__/
+backend/*.py[cod]
+backend/.pytest_cache/
+backend/.coverage
+backend/htmlcov/
+backend/test-results.xml
+backend/coverage.xml
+backend/venv/
+backend/env/
+backend/.tox/
+backend/models/
+backend/.cache/
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
+backend/logs/
+backend/*.log
+
+# ─────────────────────────────────────────
+# Frontend / Node
+# ─────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.next/
+frontend/build/
+frontend/coverage/
+frontend/*.log
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.cache/
+
+# ─────────────────────────────────────────
+# Virtual environments
+# ─────────────────────────────────────────
+venv/
+env/
+ENV/
+.venv/
+
+# ─────────────────────────────────────────
+# Testing
+# ─────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+test-results.xml
+.tox/
+
+# ─────────────────────────────────────────
+# IDE
+# ─────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─────────────────────────────────────────
+# Environment files
+# ─────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# ─────────────────────────────────────────
+# Git
+# ─────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# ─────────────────────────────────────────
+# Documentation
+# ─────────────────────────────────────────
+README.md
+*.md
+docs/
+
+# ─────────────────────────────────────────
+# CI/CD
+# ─────────────────────────────────────────
+Jenkinsfile
+.jenkins/
+
+# ─────────────────────────────────────────
+# Logs
+# ─────────────────────────────────────────
+*.log
+logs/
+
+# ─────────────────────────────────────────
+# ML Models & Cache
+# ─────────────────────────────────────────
+models/
+.cache/
+backend/models/
+backend/.cache/
+*.bin
+*.pt
+*.pth
+*.onnx
+*.h5
+
+# ─────────────────────────────────────────
+# Database
+# ─────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ─────────────────────────────────────────
+# Dataset (large files - not needed in image)
+# ─────────────────────────────────────────
+Dataset/
+*.ipynb
+ai_voice_complete.ipynb
+
+# ─────────────────────────────────────────
+# Kubernetes & Docker
+# ─────────────────────────────────────────
+k8s/
+docker-compose.yml
+docker-compose*.yml
+
+# ─────────────────────────────────────────
+# Temporary files
+# ─────────────────────────────────────────
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
