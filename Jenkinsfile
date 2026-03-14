@@ -64,6 +64,25 @@ pipeline {
         }
 
         // ─────────────────────────────────────────
+        stage('Cleanup Docker Resources') {
+        // ─────────────────────────────────────────
+            steps {
+                echo 'Cleaning up old Docker resources...'
+                sh '''
+                    echo "=== Removing dangling images ==="
+                    ${DOCKER_CMD} image prune -f || true
+        
+                    echo "=== Removing unused build cache ==="
+                    ${DOCKER_CMD} builder prune -f || true
+        
+                    echo "=== Disk usage ==="
+                    df -h || true
+                    ${DOCKER_CMD} system df || true
+                '''
+            }
+        }
+
+        // ─────────────────────────────────────────
         stage('Setup Python Environment') {
         // ─────────────────────────────────────────
             steps {
