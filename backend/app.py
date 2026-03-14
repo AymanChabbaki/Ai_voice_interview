@@ -75,16 +75,6 @@ ALLOWED_ORIGINS: List[str] = [
     ).split(",") if o.strip()
 ]
 
-# Add wildcard for Kubernetes internal traffic
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"http://192\.168\.174\.\d+.*",  # allows any VMware IP
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
-)
-
 # ---------------------------------------------------------------------------
 # Rate-limiter
 # ---------------------------------------------------------------------------
@@ -149,9 +139,11 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Add wildcard for Kubernetes internal traffic
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"http://192\.168\.174\.\d+.*",  # allows any VMware IP
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
