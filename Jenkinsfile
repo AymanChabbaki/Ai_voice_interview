@@ -203,28 +203,26 @@ pipeline {
         }
 
         // ─────────────────────────────────────────
-        stage('Build Docker Images') {
-        // ─────────────────────────────────────────
-            steps {
-                echo 'Building backend and frontend Docker images...'
-                sh '''
-                    echo "Building backend image..."
-                    ${DOCKER_CMD} build --no-cache \
-                        -t ${DOCKER_IMAGE_BACKEND}:${DOCKER_TAG} \
-                        -t ${DOCKER_IMAGE_BACKEND}:latest \
-                        -t ${DOCKER_IMAGE_BACKEND}:${GIT_COMMIT_HASH} \
-                        ./backend
-
-                    echo "Building frontend image..."
-                    ${DOCKER_CMD} build --no-cache \
-                        -t ${DOCKER_IMAGE_FRONTEND}:${DOCKER_TAG} \
-                        -t ${DOCKER_IMAGE_FRONTEND}:latest \
-                        -t ${DOCKER_IMAGE_FRONTEND}:${GIT_COMMIT_HASH} \
-                        ./frontend
-                '''
+       stage('Build Docker Images') {
+                steps {
+                    sh '''
+                        echo "Building backend image..."
+                        ${DOCKER_CMD} build --no-cache \
+                            -f ./backend/Dockerfile \
+                            -t ${DOCKER_IMAGE_BACKEND}:${DOCKER_TAG} \
+                            -t ${DOCKER_IMAGE_BACKEND}:latest \
+                            -t ${DOCKER_IMAGE_BACKEND}:${GIT_COMMIT_HASH} \
+                            .                          
+            
+                        echo "Building frontend image..."
+                        ${DOCKER_CMD} build --no-cache \
+                            -t ${DOCKER_IMAGE_FRONTEND}:${DOCKER_TAG} \
+                            -t ${DOCKER_IMAGE_FRONTEND}:latest \
+                            -t ${DOCKER_IMAGE_FRONTEND}:${GIT_COMMIT_HASH} \
+                            ./frontend
+                    '''
+                }
             }
-        }
-
         // ─────────────────────────────────────────
         stage('Test Docker Images') {
         // ─────────────────────────────────────────
