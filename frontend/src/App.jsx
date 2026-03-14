@@ -311,7 +311,7 @@ function App() {
       setApiStatus(data.status === 'healthy' ? 'connected' : 'issues');
     } catch (err) {
       setApiStatus('offline');
-      setError('Cannot connect to backend. Make sure the API is running on http://localhost:8000');
+      setError('Cannot connect to backend. Please try again later.');
     }
   };
 
