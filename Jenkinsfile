@@ -1,91 +1,94 @@
-/*
- * AI Voice Interview Backend - Jenkins CI/CD Pipeline
- * 
- * SETUP REQUIRED:
- * 1. Install plugins: Docker Pipeline, Git, JUnit, HTML Publisher
- * 2. Add credentials in Jenkins (see JENKINS_SETUP.md):
- *    - ID: 'test-database-url' (Secret text)
- *    - ID: 'test-secret-key' (Secret text)  
- *    - ID: 'docker-credentials' (Username/Password) - for pushing images
- * 3. Customize variables below as needed
- */
-
 pipeline {
     agent any
-    
+
     environment {
-        DOCKER_IMAGE    = 'ai-voice-interview-backend'
-        DOCKER_TAG      = "${env.BUILD_NUMBER}"
-        DOCKER_REGISTRY = 'othmansalahi'
-        PYTHON_VERSION  = '3.12'
-        VENV_PATH       = "${WORKSPACE}/venv"
-        DATABASE_URL    = credentials('test-database-url')
-        SECRET_KEY      = credentials('test-secret-key')
+        // Docker Hub
+        DOCKER_REGISTRY       = 'othmansalahi'
+        DOCKER_IMAGE_BACKEND  = "${DOCKER_REGISTRY}/ai-voice-interview-backend"
+        DOCKER_IMAGE_FRONTEND = "${DOCKER_REGISTRY}/ai-voice-interview-frontend"
+        DOCKER_TAG            = "${env.BUILD_NUMBER}"
+
+        // Python
+        PYTHON_VERSION        = '3.11'
+        VENV_PATH             = "${WORKSPACE}/venv"
+
+        // Credentials
+        DATABASE_URL          = credentials('test-database-url')
+        SECRET_KEY            = credentials('test-secret-key')
+
+        // Kubernetes
+        DEPLOY_USER           = 'sadmad'
+        K8S_MASTER            = 'server-3'
+        K8S_NAMESPACE         = 'ai-interview'
+        K8S_MANIFESTS_PATH    = '/home/sadmad/k8s'
     }
-    
+
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         timestamps()
         timeout(time: 60, unit: 'MINUTES')
     }
-    
+
     stages {
 
+        // ─────────────────────────────────────────
         stage('Checkout') {
+        // ─────────────────────────────────────────
             steps {
-                echo 'Checking out code...'
+                echo 'Checking out source code...'
                 checkout scm
                 sh 'git rev-parse --short HEAD > .git/commit-hash'
                 script {
                     env.GIT_COMMIT_HASH = readFile('.git/commit-hash').trim()
+                    echo "Commit: ${env.GIT_COMMIT_HASH}"
                 }
             }
         }
 
+        // ─────────────────────────────────────────
         stage('Check Docker Access') {
+        // ─────────────────────────────────────────
             steps {
                 script {
                     if (sh(script: 'docker info > /dev/null 2>&1', returnStatus: true) == 0) {
-                        env.DOCKER_CMD       = 'docker'
-                        env.DOCKER_AVAILABLE = 'true'
+                        env.DOCKER_CMD = 'docker'
                         echo 'Docker accessible directly.'
                     } else if (sh(script: 'sudo docker info > /dev/null 2>&1', returnStatus: true) == 0) {
-                        env.DOCKER_CMD       = 'sudo docker'
-                        env.DOCKER_AVAILABLE = 'true'
+                        env.DOCKER_CMD = 'sudo docker'
                         echo 'Docker accessible via sudo.'
                     } else {
                         env.DOCKER_CMD = 'docker'
-                        echo 'WARNING: could not verify docker access. Trying plain docker anyway.'
+                        echo 'WARNING: Docker access could not be verified.'
                     }
                 }
             }
         }
 
+        // ─────────────────────────────────────────
         stage('Setup Python Environment') {
+        // ─────────────────────────────────────────
             steps {
                 echo 'Setting up Python virtual environment...'
                 dir('backend') {
                     sh '''
-                        # Create venv
-                        python${PYTHON_VERSION} -m venv ${VENV_PATH} --clear
+                        python3.11 -m venv ${VENV_PATH} --clear
 
-                        # Use venv pip directly to avoid system pip restrictions
                         ${VENV_PATH}/bin/pip install --upgrade pip setuptools wheel --no-cache-dir
 
-                        # Install CPU-only PyTorch to avoid huge CUDA downloads
                         ${VENV_PATH}/bin/pip install --no-cache-dir \
                             --index-url https://download.pytorch.org/whl/cpu \
                             --extra-index-url https://pypi.org/simple \
                             torch==2.2.0 torchvision==0.17.0
 
-                        # Install all project requirements
                         ${VENV_PATH}/bin/pip install --no-cache-dir -r requirements.txt
                     '''
                 }
             }
         }
 
+        // ─────────────────────────────────────────
         stage('Setup Frontend Environment') {
+        // ─────────────────────────────────────────
             steps {
                 echo 'Installing frontend dependencies...'
                 dir('frontend') {
@@ -94,24 +97,32 @@ pipeline {
             }
         }
 
+        // ─────────────────────────────────────────
         stage('Lint & Code Quality') {
+        // ─────────────────────────────────────────
             steps {
                 echo 'Running linters and code quality checks...'
                 dir('backend') {
                     sh '''
                         ${VENV_PATH}/bin/pip install flake8 black --no-cache-dir
 
-                        # Syntax and critical errors only
-                        ${VENV_PATH}/bin/flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
+                        echo "--- Flake8 ---"
+                        ${VENV_PATH}/bin/flake8 . \
+                            --count \
+                            --select=E9,F63,F7,F82 \
+                            --show-source \
+                            --statistics || true
 
-                        # Code formatting check
+                        echo "--- Black ---"
                         ${VENV_PATH}/bin/black --check . || true
                     '''
                 }
             }
         }
 
+        // ─────────────────────────────────────────
         stage('Run Frontend Tests') {
+        // ─────────────────────────────────────────
             steps {
                 echo 'Running frontend tests...'
                 dir('frontend') {
@@ -120,7 +131,9 @@ pipeline {
             }
         }
 
+        // ─────────────────────────────────────────
         stage('Build Frontend') {
+        // ─────────────────────────────────────────
             steps {
                 echo 'Building frontend application...'
                 dir('frontend') {
@@ -129,7 +142,9 @@ pipeline {
             }
         }
 
+        // ─────────────────────────────────────────
         stage('Run Backend Tests') {
+        // ─────────────────────────────────────────
             steps {
                 echo 'Running backend test suite...'
                 dir('backend') {
@@ -147,18 +162,20 @@ pipeline {
                 always {
                     junit 'backend/test-results.xml'
                     publishHTML(target: [
-                        allowMissing: true,
+                        allowMissing         : true,
                         alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'backend/htmlcov',
-                        reportFiles: 'index.html',
-                        reportName: 'Coverage Report'
+                        keepAll              : true,
+                        reportDir            : 'backend/htmlcov',
+                        reportFiles          : 'index.html',
+                        reportName           : 'Coverage Report'
                     ])
                 }
             }
         }
 
+        // ─────────────────────────────────────────
         stage('Security Scan') {
+        // ─────────────────────────────────────────
             steps {
                 echo 'Running security vulnerability scan...'
                 dir('backend') {
@@ -170,139 +187,220 @@ pipeline {
             }
         }
 
+        // ─────────────────────────────────────────
         stage('Cleanup Docker Resources') {
+        // ─────────────────────────────────────────
             steps {
-                echo 'Cleaning up Docker resources...'
+                echo 'Cleaning up old Docker resources...'
                 sh '''
                     ${DOCKER_CMD} system prune -af --volumes || true
                     ${DOCKER_CMD} builder prune -af || true
-
-                    # Keep only last 3 images of this project
-                    IMAGES_TO_DELETE=$(($(${DOCKER_CMD} images ${DOCKER_IMAGE} -q | wc -l) - 3))
-                    if [ $IMAGES_TO_DELETE -gt 0 ]; then
-                        ${DOCKER_CMD} images ${DOCKER_IMAGE} -q | tail -n $IMAGES_TO_DELETE | xargs -r ${DOCKER_CMD} rmi -f || true
-                    fi
-
+                    echo "--- Disk usage ---"
                     df -h || true
                     ${DOCKER_CMD} system df || true
                 '''
             }
         }
 
-        stage('Build Docker Image') {
+        // ─────────────────────────────────────────
+        stage('Build Docker Images') {
+        // ─────────────────────────────────────────
             steps {
-                echo 'Building Docker image...'
-                dir('backend') {
-                    sh '''
-                        ${DOCKER_CMD} build --no-cache -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
-                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
-                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
-                    '''
-                }
+                echo 'Building backend and frontend Docker images...'
+                sh '''
+                    echo "Building backend image..."
+                    ${DOCKER_CMD} build --no-cache \
+                        -t ${DOCKER_IMAGE_BACKEND}:${DOCKER_TAG} \
+                        -t ${DOCKER_IMAGE_BACKEND}:latest \
+                        -t ${DOCKER_IMAGE_BACKEND}:${GIT_COMMIT_HASH} \
+                        ./backend
+
+                    echo "Building frontend image..."
+                    ${DOCKER_CMD} build --no-cache \
+                        -t ${DOCKER_IMAGE_FRONTEND}:${DOCKER_TAG} \
+                        -t ${DOCKER_IMAGE_FRONTEND}:latest \
+                        -t ${DOCKER_IMAGE_FRONTEND}:${GIT_COMMIT_HASH} \
+                        ./frontend
+                '''
             }
         }
 
-        stage('Test Docker Image') {
+        // ─────────────────────────────────────────
+        stage('Test Docker Images') {
+        // ─────────────────────────────────────────
             steps {
-                echo 'Testing Docker image...'
+                echo 'Testing backend Docker image...'
                 script {
                     sh """
-                        # Start postgres if not running
-                        ${DOCKER_CMD} network create interview-network 2>/dev/null || true
+                        ${DOCKER_CMD} network create interview-test-network-${BUILD_NUMBER} 2>/dev/null || true
 
-                        ${DOCKER_CMD} run -d --name test-postgres-${BUILD_NUMBER} \
-                            --network interview-network \
+                        ${DOCKER_CMD} run -d \
+                            --name test-postgres-${BUILD_NUMBER} \
+                            --network interview-test-network-${BUILD_NUMBER} \
                             -e POSTGRES_USER=interview_user \
                             -e POSTGRES_PASSWORD=interview_password \
                             -e POSTGRES_DB=interview_db \
                             postgres:15
 
-                        # Wait for postgres to be ready
+                        echo "Waiting for database to be ready..."
                         sleep 30
 
-                        # Run backend container
-                        ${DOCKER_CMD} run -d --name test-container-${BUILD_NUMBER} \
-                            --network interview-network \
+                        ${DOCKER_CMD} run -d \
+                            --name test-backend-${BUILD_NUMBER} \
+                            --network interview-test-network-${BUILD_NUMBER} \
                             -p 8001:8000 \
                             -e DATABASE_URL=postgresql://interview_user:interview_password@test-postgres-${BUILD_NUMBER}:5432/interview_db \
                             -e SECRET_KEY=\${SECRET_KEY} \
-                            ${DOCKER_IMAGE}:${DOCKER_TAG}
+                            ${DOCKER_IMAGE_BACKEND}:${DOCKER_TAG}
 
-                        # Wait for app to start and model to load
+                        echo "Waiting for backend to start and load AI model..."
                         sleep 50
 
-                        # Test health endpoint
+                        echo "Running health check..."
                         curl -f http://localhost:8001/health || exit 1
+                        echo "Health check passed!"
                     """
                 }
             }
             post {
                 always {
                     sh """
-                        ${DOCKER_CMD} stop test-container-${BUILD_NUMBER} 2>/dev/null || true
-                        ${DOCKER_CMD} rm test-container-${BUILD_NUMBER} 2>/dev/null || true
-                        ${DOCKER_CMD} stop test-postgres-${BUILD_NUMBER} 2>/dev/null || true
-                        ${DOCKER_CMD} rm test-postgres-${BUILD_NUMBER} 2>/dev/null || true
+                        echo "Cleaning up test containers..."
+                        ${DOCKER_CMD} stop  test-backend-${BUILD_NUMBER}  2>/dev/null || true
+                        ${DOCKER_CMD} rm    test-backend-${BUILD_NUMBER}  2>/dev/null || true
+                        ${DOCKER_CMD} stop  test-postgres-${BUILD_NUMBER} 2>/dev/null || true
+                        ${DOCKER_CMD} rm    test-postgres-${BUILD_NUMBER} 2>/dev/null || true
+                        ${DOCKER_CMD} network rm interview-test-network-${BUILD_NUMBER} 2>/dev/null || true
                     """
                 }
             }
         }
 
-        stage('Push Docker Image') {
-            when {
-                allOf {
-                    branch 'main'
-                    expression { env.DOCKER_REGISTRY?.trim() }
-                }
-            }
+        // ─────────────────────────────────────────
+        stage('Push Docker Images') {
+        // ─────────────────────────────────────────
             steps {
-                echo 'Pushing Docker image to registry...'
-                withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                echo 'Pushing images to Docker Hub...'
+                withCredentials([usernamePassword(
+                    credentialsId: 'docker-credentials',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
                     sh '''
                         echo "$DOCKER_PASS" | ${DOCKER_CMD} login -u "$DOCKER_USER" --password-stdin
 
-                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
-                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:latest ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
-                        ${DOCKER_CMD} tag ${DOCKER_IMAGE}:${GIT_COMMIT_HASH} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
+                        echo "Pushing backend images..."
+                        ${DOCKER_CMD} push ${DOCKER_IMAGE_BACKEND}:${DOCKER_TAG}
+                        ${DOCKER_CMD} push ${DOCKER_IMAGE_BACKEND}:latest
+                        ${DOCKER_CMD} push ${DOCKER_IMAGE_BACKEND}:${GIT_COMMIT_HASH}
 
-                        ${DOCKER_CMD} push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
-                        ${DOCKER_CMD} push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
-                        ${DOCKER_CMD} push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${GIT_COMMIT_HASH}
+                        echo "Pushing frontend images..."
+                        ${DOCKER_CMD} push ${DOCKER_IMAGE_FRONTEND}:${DOCKER_TAG}
+                        ${DOCKER_CMD} push ${DOCKER_IMAGE_FRONTEND}:latest
+                        ${DOCKER_CMD} push ${DOCKER_IMAGE_FRONTEND}:${GIT_COMMIT_HASH}
 
                         ${DOCKER_CMD} logout
+                        echo "All images pushed successfully!"
                     '''
                 }
             }
         }
 
-        stage('Deploy to Staging') {
-            when { branch 'develop' }
+        // ─────────────────────────────────────────
+        stage('Deploy to Kubernetes') {
+        // ─────────────────────────────────────────
             steps {
-                echo 'Deploying to staging environment...'
-                sh 'echo "Add staging deployment commands here"'
-            }
-        }
+                echo 'Deploying to K3s Kubernetes cluster...'
+                sh """
+                    # Create k8s directory on master
+                    ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${K8S_MASTER} \
+                        'mkdir -p ${K8S_MANIFESTS_PATH}'
 
-        stage('Deploy to Production') {
-            when { branch 'main' }
-            steps {
-                echo 'Deploying to production environment...'
-                input message: 'Deploy to Production?', ok: 'Deploy'
-                sh 'echo "Add production deployment commands here"'
+                    # Copy all k8s manifests to server-3
+                    scp -o StrictHostKeyChecking=no -r k8s/ \
+                        ${DEPLOY_USER}@${K8S_MASTER}:${K8S_MANIFESTS_PATH}/
+
+                    # Apply manifests and deploy
+                    ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${K8S_MASTER} '
+
+                        echo "=== Creating namespace ===" &&
+                        sudo kubectl apply -f ${K8S_MANIFESTS_PATH}/k8s/namespace.yaml &&
+
+                        echo "=== Applying secrets ===" &&
+                        sudo kubectl apply -f ${K8S_MANIFESTS_PATH}/k8s/secrets.yaml &&
+
+                        echo "=== Deploying database ===" &&
+                        sudo kubectl apply -f ${K8S_MANIFESTS_PATH}/k8s/db-deployment.yaml &&
+
+                        echo "=== Waiting for database ===" &&
+                        sudo kubectl rollout status deployment/postgres \
+                            -n ${K8S_NAMESPACE} --timeout=60s &&
+
+                        echo "=== Deploying backend ===" &&
+                        sudo kubectl apply -f ${K8S_MANIFESTS_PATH}/k8s/backend-deployment.yaml &&
+
+                        echo "=== Deploying frontend ===" &&
+                        sudo kubectl apply -f ${K8S_MANIFESTS_PATH}/k8s/frontend-deployment.yaml &&
+
+                        echo "=== Restarting deployments to pull latest images ===" &&
+                        sudo kubectl rollout restart deployment/backend  -n ${K8S_NAMESPACE} &&
+                        sudo kubectl rollout restart deployment/frontend -n ${K8S_NAMESPACE} &&
+
+                        echo "=== Waiting for rollouts to complete ===" &&
+                        sudo kubectl rollout status deployment/backend  \
+                            -n ${K8S_NAMESPACE} --timeout=120s &&
+                        sudo kubectl rollout status deployment/frontend \
+                            -n ${K8S_NAMESPACE} --timeout=120s &&
+
+                        echo "=== Deployment complete ===" &&
+                        echo "--- Pods ---" &&
+                        sudo kubectl get pods -n ${K8S_NAMESPACE} &&
+                        echo "--- Services ---" &&
+                        sudo kubectl get services -n ${K8S_NAMESPACE} &&
+                        echo "--- Nodes ---" &&
+                        sudo kubectl get nodes
+                    '
+                """
             }
         }
     }
 
+    // ─────────────────────────────────────────
     post {
+    // ─────────────────────────────────────────
         always {
             echo 'Cleaning up workspace...'
             cleanWs()
         }
         success {
-            echo 'Pipeline completed successfully! ✅'
+            echo '''
+            ✅ Pipeline completed successfully!
+            ─────────────────────────────────
+            ✔ Code checked out
+            ✔ Python environment set up
+            ✔ Frontend built
+            ✔ Tests passed
+            ✔ Security scan done
+            ✔ Docker images built and pushed
+            ✔ App deployed to Kubernetes
+            ─────────────────────────────────
+            Frontend: http://192.168.174.146:30080
+            Backend:  http://192.168.174.146:8000
+            Frontend: http://192.168.174.147:30080
+            Backend:  http://192.168.174.147:8000
+            '''
         }
         failure {
-            echo 'Pipeline failed! ❌'
+            echo '''
+            ❌ Pipeline failed!
+            ─────────────────────────────────
+            Check the logs above for details.
+            Common issues:
+            - Docker build failed
+            - Tests failed
+            - K8s deployment failed
+            ─────────────────────────────────
+            '''
         }
     }
 }
