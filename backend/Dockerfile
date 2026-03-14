@@ -4,13 +4,13 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc g++ && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.prod.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir \
       --index-url https://download.pytorch.org/whl/cpu \
       --extra-index-url https://pypi.org/simple \
       torch==2.2.0 torchvision==0.17.0 && \
-    pip install --no-cache-dir -r requirements.prod.txt && \
+    pip install --no-cache-dir -r requirements.txt && \
     find /usr/local/lib/python3.11/site-packages -type f -name '*.pyc' -delete && \
     rm -rf /usr/local/lib/python3.11/site-packages/torch/include && \
     rm -rf /usr/local/lib/python3.11/site-packages/caffe2 && \
