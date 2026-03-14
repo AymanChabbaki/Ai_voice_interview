@@ -60,7 +60,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES  = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(
 SIMILARITY_THRESHOLD         = float(os.getenv("SIMILARITY_THRESHOLD", "0.6"))
 NUM_QUESTIONS                = int(os.getenv("NUM_QUESTIONS", "3"))
 
-BASE_DIR            = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR            = os.path.dirname(os.path.abspath(__file__))
 KNOWLEDGE_BASE_FILE = os.getenv("KB_FILE",      os.path.join(BASE_DIR, "final_knowledge_base.csv"))
 COURSE_CATALOG_FILE = os.getenv("COURSES_FILE", os.path.join(BASE_DIR, "course_catalog.csv"))
 
