@@ -281,7 +281,6 @@ pipeline {
         // ─────────────────────────────────────────
         stage('Push Docker Images') {
         // ─────────────────────────────────────────
-            when { branch 'sadmad' }
             steps {
                 echo 'Pushing images to Docker Hub...'
                 withCredentials([usernamePassword(
