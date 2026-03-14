@@ -60,13 +60,30 @@ ACCESS_TOKEN_EXPIRE_MINUTES  = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(
 SIMILARITY_THRESHOLD         = float(os.getenv("SIMILARITY_THRESHOLD", "0.6"))
 NUM_QUESTIONS                = int(os.getenv("NUM_QUESTIONS", "3"))
 
-BASE_DIR            = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR            = os.path.dirname(os.path.abspath(__file__))
 KNOWLEDGE_BASE_FILE = os.getenv("KB_FILE",      os.path.join(BASE_DIR, "final_knowledge_base.csv"))
 COURSE_CATALOG_FILE = os.getenv("COURSES_FILE", os.path.join(BASE_DIR, "course_catalog.csv"))
 
+# ---------------------------------------------------------------------------
+# allowing frontend , to prevent CORS policy
+# ---------------------------------------------------------------------------
+
 ALLOWED_ORIGINS: List[str] = [
-    o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8082").split(",") if o.strip()
+    o.strip() for o in os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:5173,http://localhost:3000"
+    ).split(",") if o.strip()
 ]
+
+# Add wildcard for Kubernetes internal traffic
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"http://192\.168\.174\.\d+.*",  # allows any VMware IP
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
 # ---------------------------------------------------------------------------
 # Rate-limiter
