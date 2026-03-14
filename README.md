@@ -115,6 +115,7 @@ Smart Voice Interviewer is an advanced AI-powered interview preparation platform
 
 ### System Design
 
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        Frontend (React)                      │
