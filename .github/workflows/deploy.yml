@@ -1,0 +1,28 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches: [ sadmad ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AZURE_SSH_KEY }}" > ~/.ssh/id_rsa_azure
+          chmod 600 ~/.ssh/id_rsa_azure
+
+      - name: Run Ansible playbook
+        run: |
+          cd infra/ansible
+          ansible-playbook playbooks/site.yml \
+            -i inventory/hosts.ini \
+            -e "app_secret_key=${{ secrets.APP_SECRET_KEY }}"
