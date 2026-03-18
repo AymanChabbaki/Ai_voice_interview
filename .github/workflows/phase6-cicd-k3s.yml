@@ -77,11 +77,42 @@ jobs:
           PORT="${K3S_SSH_PORT:-22}"
           REMOTE="${K3S_SSH_USER}@${K3S_HOST}"
 
-          ssh -p "${PORT}" -o StrictHostKeyChecking=accept-new "${REMOTE}" "
-            set -e
-            kubectl -n smart-interviewer set image deployment/backend backend=${DOCKERHUB_USERNAME}/svi-backend:${{ github.sha }}
-            kubectl -n smart-interviewer set image deployment/frontend frontend=${DOCKERHUB_USERNAME}/svi-frontend:${{ github.sha }}
-            kubectl -n smart-interviewer rollout status deployment/backend --timeout=300s
-            kubectl -n smart-interviewer rollout status deployment/frontend --timeout=300s
-            kubectl -n smart-interviewer get pods -o wide
-          "
+          ssh -p "${PORT}" -o StrictHostKeyChecking=accept-new "${REMOTE}" \
+            "DOCKERHUB_USERNAME='${DOCKERHUB_USERNAME}' RELEASE_SHA='${{ github.sha }}' bash -s" <<'REMOTE_SCRIPT'
+          set -euo pipefail
+
+          NS="smart-interviewer"
+
+          rollout_or_recreate() {
+            DEPLOYMENT="$1"
+            APP_LABEL="$2"
+            TIMEOUT="$3"
+
+            if kubectl -n "${NS}" rollout status "deployment/${DEPLOYMENT}" --timeout="${TIMEOUT}"; then
+              return 0
+            fi
+
+            echo "Rollout for ${DEPLOYMENT} timed out. Collecting diagnostics before fallback..."
+            kubectl -n "${NS}" get pods -l "app=${APP_LABEL}" -o wide || true
+            kubectl -n "${NS}" describe deployment "${DEPLOYMENT}" || true
+
+            echo "Applying fallback recreate strategy for ${DEPLOYMENT}..."
+            kubectl -n "${NS}" scale "deployment/${DEPLOYMENT}" --replicas=0
+            kubectl -n "${NS}" wait --for=delete pod -l "app=${APP_LABEL}" --timeout=180s || true
+            kubectl -n "${NS}" scale "deployment/${DEPLOYMENT}" --replicas=1
+            kubectl -n "${NS}" rollout status "deployment/${DEPLOYMENT}" --timeout=300s
+          }
+
+          # Keep backend rollout safe for low-capacity clusters.
+          kubectl -n "${NS}" patch deployment backend --type merge \
+            -p '{"spec":{"strategy":{"type":"RollingUpdate","rollingUpdate":{"maxSurge":"0","maxUnavailable":"1"}}}}' || true
+
+          kubectl -n "${NS}" set image deployment/backend backend="${DOCKERHUB_USERNAME}/svi-backend:${RELEASE_SHA}"
+          kubectl -n "${NS}" set image deployment/frontend frontend="${DOCKERHUB_USERNAME}/svi-frontend:${RELEASE_SHA}"
+
+          rollout_or_recreate backend backend 240s
+          rollout_or_recreate frontend frontend 240s
+
+          kubectl -n "${NS}" get deploy backend frontend -o wide
+          kubectl -n "${NS}" get pods -o wide
+          REMOTE_SCRIPT

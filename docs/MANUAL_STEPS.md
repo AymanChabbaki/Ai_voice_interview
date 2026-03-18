@@ -311,7 +311,7 @@
 
 #### 6.1 — Push your repository to GitHub
 - [ ] Ensure this project is hosted in a GitHub repository with Actions enabled.
-- [ ] Push your latest branch to `main`.
+- [ ] Push your latest branch to `devOps`.
 
 #### 6.2 — Add required GitHub repository secrets
 - [ ] Open **GitHub Repo → Settings → Secrets and variables → Actions**.
@@ -340,8 +340,45 @@
   ```
 
 #### 6.5 — Ongoing usage
-- [ ] Any push to `main` touching `backend/**`, `frontend/**`, `infra/k8s/**`, or workflow file auto-triggers build + deploy.
+- [ ] Any push to `devOps` touching `backend/**`, `frontend/**`, `infra/k8s/**`, or workflow file auto-triggers build + deploy.
 - [ ] Use manual dispatch for controlled releases when needed.
+
+---
+
+## Phase 7 — Release Rollback (GitHub Actions) ✅
+
+### What was generated
+- `.github/workflows/phase7-rollback-k3s.yml`
+
+### What you must do manually
+
+#### 7.1 — Confirm Phase 6 secrets exist
+- [ ] Ensure these repo secrets already exist (same as Phase 6):
+  - `DOCKERHUB_USERNAME`
+  - `K3S_HOST`
+  - `K3S_SSH_USER`
+  - `K3S_SSH_PRIVATE_KEY`
+  - `K3S_SSH_PORT` (optional)
+
+#### 7.2 — Run a rollback
+- [ ] Open **Actions → Phase 7 - Rollback on K3s → Run workflow**.
+- [ ] Provide image tags:
+  - `backend_tag` (e.g. previous commit SHA or `latest`)
+  - `frontend_tag` (e.g. previous commit SHA or `latest`)
+- [ ] Start workflow and wait for rollout checks to pass.
+
+#### 7.3 — Verify rollback outcome
+- [ ] Verify active images on cluster:
+  ```bash
+  kubectl -n smart-interviewer get deploy backend frontend -o=jsonpath='{range .items[*]}{.metadata.name}{" => "}{.spec.template.spec.containers[0].image}{"\n"}{end}'
+  ```
+- [ ] Verify app endpoints:
+  - `http://<MASTER_PUBLIC_IP>:30080`
+  - `http://<MASTER_PUBLIC_IP>:30080/api/health`
+
+#### 7.4 — Recommended release practice
+- [ ] Keep a note of successful `github.sha` image tags from Phase 6 runs.
+- [ ] Use those known-good SHA tags in rollback workflow for deterministic recovery.
 
 ---
 

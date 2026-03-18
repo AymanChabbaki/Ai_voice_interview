@@ -1,0 +1,52 @@
+name: Phase 7 - Rollback on K3s
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend_tag:
+        description: "Backend image tag to deploy (example: latest or full SHA)"
+        required: true
+        default: "latest"
+      frontend_tag:
+        description: "Frontend image tag to deploy (example: latest or full SHA)"
+        required: true
+        default: "latest"
+
+jobs:
+  rollback:
+    name: Roll Back Deployment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.K3S_SSH_PRIVATE_KEY }}
+
+      - name: Roll back to selected image tags
+        env:
+          K3S_HOST: ${{ secrets.K3S_HOST }}
+          K3S_SSH_USER: ${{ secrets.K3S_SSH_USER }}
+          K3S_SSH_PORT: ${{ secrets.K3S_SSH_PORT }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          BACKEND_TAG: ${{ inputs.backend_tag }}
+          FRONTEND_TAG: ${{ inputs.frontend_tag }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${K3S_HOST}" ] || [ -z "${K3S_SSH_USER}" ] || [ -z "${DOCKERHUB_USERNAME}" ]; then
+            echo "K3S_HOST, K3S_SSH_USER and DOCKERHUB_USERNAME must be configured in GitHub Secrets."
+            exit 1
+          fi
+
+          PORT="${K3S_SSH_PORT:-22}"
+          REMOTE="${K3S_SSH_USER}@${K3S_HOST}"
+
+          ssh -p "${PORT}" -o StrictHostKeyChecking=accept-new "${REMOTE}" "
+            set -e
+            kubectl -n smart-interviewer set image deployment/backend backend=${DOCKERHUB_USERNAME}/svi-backend:${BACKEND_TAG}
+            kubectl -n smart-interviewer set image deployment/frontend frontend=${DOCKERHUB_USERNAME}/svi-frontend:${FRONTEND_TAG}
+            kubectl -n smart-interviewer rollout status deployment/backend --timeout=300s
+            kubectl -n smart-interviewer rollout status deployment/frontend --timeout=300s
+            kubectl -n smart-interviewer get deploy backend frontend -o=jsonpath='{range .items[*]}{.metadata.name}{" => "}{.spec.template.spec.containers[0].image}{"\n"}{end}'
+          "
