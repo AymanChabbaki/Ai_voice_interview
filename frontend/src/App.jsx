@@ -48,7 +48,7 @@ const CATEGORIES_RETRY_DELAY_MS = 5000;
 const MAX_CATEGORIES_RETRIES = 12;
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,32}$/;
 
-const parseApiErrorMessage = async (response, fallbackMessage) => {
+export const parseApiErrorMessage = async (response, fallbackMessage) => {
   try {
     const errData = await response.json();
     const detail = errData && errData.detail;

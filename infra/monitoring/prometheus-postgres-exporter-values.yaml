@@ -1,0 +1,24 @@
+config:
+  datasource:
+    existingSecret:
+      name: db-secret
+      key: DATABASE_URL
+
+service:
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9187"
+    prometheus.io/path: /metrics
+
+serviceMonitor:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+replicas: 1

@@ -191,20 +191,35 @@ Trigger model:
 1. Push to `devOps` branch (selected paths).
 2. Manual dispatch supported for controlled release.
 
+Quality gate model:
+
+1. Deployment is blocked unless backend tests pass.
+2. Deployment is blocked unless frontend tests pass.
+3. Build and push job starts only after both test jobs are green.
+
 Pipeline stages in detail:
 
-1. Checkout repository.
-2. Setup Docker Buildx.
-3. Authenticate to Docker Hub.
-4. Build and push backend image:
+1. Backend test job (`pytest`):
+  - Python 3.10 setup.
+  - Install `backend/requirements-test.txt`.
+  - Run `python -m pytest -q`.
+2. Frontend test job (`npm test`):
+  - Node 20 setup.
+  - Install dependencies with `npm ci`.
+  - Run `npm test` (Vitest).
+3. Checkout repository.
+4. Setup Docker Buildx.
+5. Authenticate to Docker Hub.
+6. Build and push backend image:
   - `<DOCKERHUB_USERNAME>/svi-backend:latest`
   - `<DOCKERHUB_USERNAME>/svi-backend:<github.sha>`
-5. Build and push frontend image:
+7. Build and push frontend image:
   - `<DOCKERHUB_USERNAME>/svi-frontend:latest`
   - `<DOCKERHUB_USERNAME>/svi-frontend:<github.sha>`
-6. SSH to K3s master and deploy:
+8. SSH to K3s master and deploy:
   - `kubectl set image` for backend and frontend deployments.
   - `kubectl rollout status` checks.
+  - Automatic fallback recreate if rollout times out on constrained capacity.
   - Pod listing for visibility.
 
 Required GitHub secrets:
@@ -220,6 +235,22 @@ Release traceability model:
 
 1. `latest` for convenience.
 2. Commit SHA tags for deterministic rollback and auditability.
+
+Test assets added to the repository:
+
+1. Backend:
+  - `backend/pytest.ini`
+  - `backend/requirements-test.txt`
+  - `backend/tests/conftest.py`
+  - `backend/tests/test_initialization.py`
+  - `backend/tests/test_validation.py`
+  - `backend/tests/test_api_integration.py`
+2. Frontend:
+  - `frontend/vite.config.js` (Vitest config)
+  - `frontend/src/test/setup.js`
+  - `frontend/src/confetti.test.js`
+  - `frontend/src/App.integration.test.jsx`
+  - `frontend/package.json` test script (`npm test`)
 
 ## Phase 7 - Rollback Workflow
 
@@ -277,7 +308,30 @@ Run after each deployment:
 kubectl -n smart-interviewer get deploy backend frontend -o=jsonpath='{range .items[*]}{.metadata.name}{" => "}{.spec.template.spec.containers[0].image}{"\n"}{end}'
 ```
 
-## 6.2 Incident Response Checklist
+## 6.2 Pre-Deploy Validation (Local)
+
+Before pushing to `devOps`, run locally:
+
+1. Backend tests:
+
+```bash
+cd backend
+python -m pytest -q
+```
+
+2. Frontend tests:
+
+```bash
+cd frontend
+npm test
+```
+
+Expected baseline:
+
+1. Backend: all tests passed (initialization, validation, integration).
+2. Frontend: all tests passed (unit and integration-style).
+
+## 6.3 Incident Response Checklist
 
 If app is down or degraded:
 
@@ -287,7 +341,7 @@ If app is down or degraded:
 4. Validate DB pod and PVC readiness.
 5. If release is faulty, execute Phase 7 rollback to known-good SHA tags.
 
-## 6.3 Git Hygiene and Artifact Safety
+## 6.4 Git Hygiene and Artifact Safety
 
 Rules:
 
@@ -341,3 +395,55 @@ Recommended next upgrades:
 3. Add environment protection/approval gates in GitHub Actions.
 4. Add alerting dashboards (Prometheus/Grafana or cloud-native monitoring).
 5. Add automated database backup and restore drill runbook.
+
+## 11. Phase 8 - Monitoring and Observability (Helm)
+
+Objective:
+
+1. Add cluster and VM visibility for CPU/memory.
+2. Add PostgreSQL observability (connections and performance counters).
+3. Keep installation reproducible and versionable in Git.
+
+Artifacts:
+
+1. `infra/monitoring/kube-prometheus-stack-values.yaml`
+2. `infra/monitoring/install-monitoring-remote.ps1`
+
+What is installed:
+
+1. `prometheus-community/prometheus` (Prometheus server + node exporter + kube-state-metrics).
+2. `grafana/grafana` (Grafana UI with Prometheus datasource).
+3. `prometheus-postgres-exporter` is deferred on t3.micro and can be enabled later.
+
+Install execution:
+
+```powershell
+cd infra/monitoring
+./install-monitoring-remote.ps1 -MasterIp <MASTER_PUBLIC_IP>
+```
+
+Operational behavior of installer:
+
+1. Resolves master IP from Terraform output if not passed.
+2. Copies Helm values files to the master over SSH.
+3. Installs Helm remotely if missing.
+4. Adds and updates `prometheus-community` Helm repo.
+5. Installs/updates `monitoring` release in namespace `monitoring`.
+6. Prints running pods/services for quick verification.
+
+Access and credentials:
+
+1. Grafana URL: `http://<MASTER_PUBLIC_IP>:30300`
+2. Default credentials: `admin / admin123`
+
+Dashboards and metrics now available:
+
+1. Node CPU and memory utilization for VMs.
+2. Pod/container resource usage and workload health trends.
+3. PostgreSQL metrics are deferred until instance capacity is increased.
+
+Post-install verification:
+
+```bash
+kubectl -n monitoring get pods,svc
+```

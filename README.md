@@ -18,6 +18,7 @@ It combines a React frontend, a FastAPI backend, semantic answer scoring, Postgr
 - Database: PostgreSQL
 - AI Layer: sentence-transformers (all-MiniLM-L6-v2)
 - Infra: Terraform + Ansible + Kubernetes manifests
+- Monitoring: Helm + Prometheus + Grafana
 - Cloud: AWS EC2 (1 control-plane, 1 worker)
 - CI/CD: GitHub Actions
 
@@ -37,6 +38,7 @@ frontend/               React app and Nginx proxy config
 infra/terraform/        AWS provisioning
 infra/ansible/          K3s bootstrap and cluster setup
 infra/k8s/              Namespace, DB, backend, frontend manifests
+infra/monitoring/       Helm values and monitoring install script
 docs/                   Manuals and supporting docs
 .github/workflows/      CI/CD and rollback workflows
 ```
@@ -72,6 +74,34 @@ The production environment is deployed on AWS and Kubernetes with the following 
 2. Ansible installs K3s and joins worker to master.
 3. Kubernetes manifests deploy DB, backend, frontend in namespace `smart-interviewer`.
 4. Frontend is exposed via NodePort `30080`.
+
+## Monitoring Stack (Helm)
+
+Prometheus and Grafana are installed using lightweight Helm charts tuned for t3.micro.
+
+Files:
+
+- `infra/monitoring/prometheus-values.yaml`
+- `infra/monitoring/grafana-values.yaml`
+- `infra/monitoring/install-monitoring-remote.ps1`
+
+Install from your local machine:
+
+```powershell
+cd infra/monitoring
+./install-monitoring-remote.ps1 -MasterIp <MASTER_PUBLIC_IP>
+```
+
+Access:
+
+- Grafana: `http://<MASTER_PUBLIC_IP>:30300`
+- Default login: `admin / admin123`
+
+What you get:
+
+1. VM/Node CPU and memory dashboards from Prometheus node metrics.
+2. Kubernetes workload metrics (pods, deployments, resource usage).
+3. PostgreSQL exporter is deferred for now on t3.micro and can be enabled later.
 
 ## CI/CD
 
