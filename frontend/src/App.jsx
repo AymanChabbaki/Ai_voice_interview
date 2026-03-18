@@ -43,7 +43,39 @@ import {
   Users
 } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const CATEGORIES_RETRY_DELAY_MS = 5000;
+const MAX_CATEGORIES_RETRIES = 12;
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,32}$/;
+
+const parseApiErrorMessage = async (response, fallbackMessage) => {
+  try {
+    const errData = await response.json();
+    const detail = errData && errData.detail;
+
+    if (typeof detail === 'string' && detail.trim()) {
+      return detail;
+    }
+
+    if (Array.isArray(detail) && detail.length > 0) {
+      const messages = detail
+        .map((item) => {
+          if (typeof item === 'string') return item;
+          if (item && typeof item.msg === 'string') return item.msg;
+          return null;
+        })
+        .filter(Boolean);
+
+      if (messages.length > 0) {
+        return messages.join('; ');
+      }
+    }
+  } catch {
+    // ignore JSON parsing errors and use fallback
+  }
+
+  return fallbackMessage;
+};
 
 // Token management
 const getToken = () => localStorage.getItem('token');
@@ -160,8 +192,7 @@ function App() {
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.detail || 'Login failed');
+        throw new Error(await parseApiErrorMessage(response, 'Login failed'));
       }
 
       const data = await response.json();
@@ -185,22 +216,36 @@ function App() {
     setError(null);
 
     try {
+      const username = authForm.username.trim();
+      const email = authForm.email.trim();
+      const password = authForm.password;
+      const name = authForm.name.trim();
+
+      if (!USERNAME_REGEX.test(username)) {
+        throw new Error('Username must be 3-32 characters and contain only letters, numbers, or underscores.');
+      }
+
+      if (password.length < 8) {
+        throw new Error('Password must be at least 8 characters.');
+      }
+
+      if (name.length < 2) {
+        throw new Error('Name must be at least 2 characters.');
+      }
+
       const response = await fetch(`${API_BASE_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: authForm.username,
-          email: authForm.email,
-          password: authForm.password,
-          name: authForm.name,
-          bio: authForm.bio,
-          experience_level: authForm.experience_level
+          username,
+          email,
+          password,
+          name
         })
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.detail || 'Registration failed');
+        throw new Error(await parseApiErrorMessage(response, 'Registration failed'));
       }
 
       const data = await response.json();
@@ -306,17 +351,40 @@ function App() {
       setApiStatus(data.status === 'healthy' ? 'connected' : 'issues');
     } catch (err) {
       setApiStatus('offline');
-      setError('Cannot connect to backend. Make sure the API is running on http://localhost:8000');
+      setError('Cannot connect to backend API. Check the frontend API base URL configuration and backend availability.');
     }
   };
 
-  const loadCategories = async () => {
+  const loadCategories = async (attempt = 0) => {
     try {
       const response = await fetch(`${API_BASE_URL}/categories`);
-      const data = await response.json();
+      let data = null;
+
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+
+      if (!response.ok) {
+        const detail = data && typeof data.detail === 'string' ? data.detail : `HTTP ${response.status}`;
+
+        if (response.status === 503 && attempt < MAX_CATEGORIES_RETRIES) {
+          setTimeout(() => loadCategories(attempt + 1), CATEGORIES_RETRY_DELAY_MS);
+          return;
+        }
+
+        throw new Error(detail);
+      }
+
+      if (!data || !data.top_categories || typeof data.top_categories !== 'object') {
+        throw new Error('Invalid categories payload from API');
+      }
+
       setCategories(Object.keys(data.top_categories).map(name => ({ name })));
     } catch (err) {
       console.error('Failed to load categories:', err);
+      setCategories([]);
     }
   };
 
@@ -1866,8 +1934,8 @@ function App() {
                       value={authForm.password}
                       onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
                       required
-                      minLength="6"
-                      placeholder="At least 6 characters"
+                      minLength="8"
+                      placeholder="At least 8 characters"
                     />
                   </div>
                   <div className="form-group">

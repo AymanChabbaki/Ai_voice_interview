@@ -14,8 +14,9 @@ RUN npm ci --prefer-offline
 COPY . .
 
 # VITE_API_URL is injected at build time via --build-arg so the compiled JS
-# bundle points at the correct backend URL.
-ARG VITE_API_URL=http://localhost:8000
+# bundle points at the correct backend URL. In Kubernetes we proxy /api in nginx,
+# so the safe default is a relative path.
+ARG VITE_API_URL=/api
 ENV VITE_API_URL=${VITE_API_URL}
 
 RUN npm run build

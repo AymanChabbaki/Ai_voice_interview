@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars and fill in your values.
+
+project_name     = "smart-interviewer"
+aws_region       = "us-east-1"
+instance_type    = "t3.micro"
+# Option A: use an existing AWS EC2 key pair name
+key_name         = ""
+# Option B: create EC2 key pair from your local public key (.pub)
+public_key_path  = "C:/Users/your-user/.ssh/svi_key.pub"
+allowed_ssh_cidr = "0.0.0.0/0"

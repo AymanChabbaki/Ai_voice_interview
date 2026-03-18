@@ -1,4 +1,29 @@
 /models
-/frontend/node_modules
-/backend/node_modules
+
+# Node dependencies
+/frontend/node_modules/
+/backend/node_modules/
+
+# Environment and secrets
 .env
+.env.*
+/backend/.env
+/backend/.env.*
+
+# Python caches and virtual envs
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Terraform local state and providers (never commit)
+/infra/terraform/.terraform/
+/infra/terraform/terraform.tfstate
+/infra/terraform/terraform.tfstate.*
+/infra/terraform/*.tfvars
+!/infra/terraform/terraform.tfvars.example
+
+# OS/editor noise
+Thumbs.db
+.DS_Store

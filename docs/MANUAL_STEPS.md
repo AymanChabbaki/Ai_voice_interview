@@ -109,36 +109,240 @@
   ```
 - [ ] Note down the full image names — you will paste them into the Kubernetes `deployment.yaml` manifests in Phase 5.
 
-The push refers to repository [docker.io/aymenexe/svi-frontend]
-61ca4f733c80: Pushed
-82ad9f22b70f: Pushed
-f18232174bc9: Mounted from aymenexe/firstapp
-197eb75867ef: Pushed
-b464cfdf2a63: Pushed
-d7e507024086: Pushed
-81bd8ed7ec67: Pushed
-4f245ffb6b52: Pushed
-34a64644b756: Pushed
-a5f50e7551e6: Pushed
-95cf6bca842d: Pushed
-39c2ddfd6010: Pushed
-latest: digest: sha256:a65d54d3017403bcbe6558c7a3fc914f7512322b5bf0afa4f1b8d7e65376207f size: 856
+---
 
+## Phase 3 — Terraform (2x t3.micro) ✅
 
-The push refers to repository [docker.io/aymenexe/svi-backend]
-4d1e02f91db8: Pushed
-aecf3e6b3e04: Pushed
-f937e6e71171: Pushed
-ce7afba89736: Pushed
-206356c42440: Pushed
-44df7c9b0118: Pushed
-623df85cc3f0: Pushed
-98e22c324dcf: Pushed
-7fe6b2798913: Pushed
-f875d262a812: Pushed
-7187a497fe0b: Pushed
-latest: digest: sha256:fd61dd406125aaa64e7c1a4c6f7ad226ac6a854d1e3a1db335894579c94fc32b size: 856
-PS D:\Jira_Project> 
+### What was generated
+- `infra/terraform/main.tf`
+- `infra/terraform/variables.tf`
+- `infra/terraform/outputs.tf`
+- `infra/terraform/terraform.tfvars.example`
+
+### What you must do manually
+
+#### 3.1 — Install Terraform (if missing)
+- [ ] Verify Terraform is installed:
+  ```powershell
+  terraform version
+  ```
+- [ ] If command is not found, install Terraform and reopen PowerShell.
+
+#### 3.2 — Configure AWS credentials
+- [ ] Install/configure AWS CLI and set credentials:
+  ```powershell
+  aws configure
+  ```
+- [ ] Confirm account access:
+  ```powershell
+  aws sts get-caller-identity
+  ```
+
+#### 3.3 — Prepare terraform variables
+- [ ] Go to terraform folder:
+  ```powershell
+  cd infra\terraform
+  ```
+- [ ] Create local tfvars file:
+  ```powershell
+  Copy-Item terraform.tfvars.example terraform.tfvars
+  ```
+- [ ] Edit `terraform.tfvars` and set:
+  - `key_name` (existing AWS keypair) **or** `public_key_path` (local `.pub` key)
+  - `allowed_ssh_cidr` = your public IP CIDR (recommended) or `0.0.0.0/0`
+  - `aws_region` if different from default
+
+#### 3.4 — Create infrastructure
+- [ ] Initialize Terraform:
+  ```powershell
+  terraform init
+  ```
+- [ ] Check plan:
+  ```powershell
+  terraform plan
+  ```
+- [ ] Apply:
+  ```powershell
+  terraform apply -auto-approve
+  ```
+
+#### 3.5 — Save outputs for Ansible
+- [ ] Export both IPs (or copy from output):
+  ```powershell
+  terraform output master_public_ip
+  terraform output worker_public_ip
+  ```
+- [ ] Keep these IPs ready for Phase 4 inventory.
+
+---
+
+## Phase 4 — Ansible (K3s install) ✅
+
+### What was generated
+- `infra/ansible/ansible.cfg`
+- `infra/ansible/inventory.ini.example`
+- `infra/ansible/install-k3s.yml`
+
+### What you must do manually
+
+#### 4.1 — Install Ansible (control machine)
+- [ ] Verify Ansible:
+  ```powershell
+  ansible --version
+  ```
+- [ ] If missing, install Ansible (prefer WSL Ubuntu for Windows users).
+
+#### 4.2 — Verify SSH access to EC2 nodes
+- [ ] Test SSH to master and worker using your keypair:
+  ```powershell
+  ssh -i <path-to-key.pem> ubuntu@<MASTER_PUBLIC_IP>
+  ssh -i <path-to-key.pem> ubuntu@<WORKER_PUBLIC_IP>
+  ```
+- [ ] If SSH fails, fix Security Group rule for port 22 and keypair path/permissions.
+
+#### 4.3 — Build inventory from Terraform outputs
+- [ ] Go to ansible folder:
+  ```powershell
+  cd ..\ansible
+  ```
+- [ ] Copy inventory template:
+  ```powershell
+  Copy-Item inventory.ini.example inventory.ini
+  ```
+- [ ] Replace placeholders in `inventory.ini` with actual public IPs from Terraform.
+
+#### 4.4 — Run K3s installation playbook
+- [ ] Run playbook (with your SSH key):
+  ```powershell
+  ansible-playbook -i inventory.ini install-k3s.yml --private-key <path-to-key.pem>
+  ```
+
+#### 4.5 — Validate cluster after install
+- [ ] SSH into master and check nodes:
+  ```powershell
+  ssh -i <path-to-key.pem> ubuntu@<MASTER_PUBLIC_IP>
+  sudo kubectl get nodes -o wide
+  ```
+- [ ] Expect both nodes to be `Ready`.
+
+---
+
+## Phase 5 — Kubernetes manifests ✅
+
+### What was generated
+- `infra/k8s/00-namespace.yaml`
+- `infra/k8s/01-db-secret.yaml`
+- `infra/k8s/02-db-pvc.yaml`
+- `infra/k8s/03-db-service.yaml`
+- `infra/k8s/04-db-statefulset.yaml`
+- `infra/k8s/05-backend-deployment.yaml`
+- `infra/k8s/06-backend-service.yaml`
+- `infra/k8s/07-frontend-deployment.yaml`
+- `infra/k8s/08-frontend-service.yaml`
+- `infra/k8s/apply.sh`
+- `infra/k8s/apply.ps1`
+
+### What you must do manually
+
+#### 5.1 — Rebuild and push frontend image (required)
+> The frontend was updated to call `/api` through nginx proxy, so you must rebuild/push it before deploying to K8s.
+
+- [ ] Build and push frontend:
+  ```powershell
+  cd frontend
+  docker build -t <your-dockerhub-username>/svi-frontend:latest .
+  docker push <your-dockerhub-username>/svi-frontend:latest
+  ```
+
+#### 5.2 — Ensure backend image exists in registry
+- [ ] If needed, rebuild/push backend image:
+  ```powershell
+  cd ..\backend
+  docker build -t <your-dockerhub-username>/svi-backend:latest .
+  docker push <your-dockerhub-username>/svi-backend:latest
+  ```
+
+#### 5.3 — Set Kubernetes image names
+- [ ] Open these files and set your Docker Hub namespace if different:
+  - `infra/k8s/05-backend-deployment.yaml`
+  - `infra/k8s/07-frontend-deployment.yaml`
+
+#### 5.4 — Set production secrets
+- [ ] Edit `infra/k8s/01-db-secret.yaml` and replace:
+  - `POSTGRES_PASSWORD`
+  - `DATABASE_URL` password segment
+  - `SECRET_KEY`
+
+#### 5.5 — Apply manifests to cluster
+- [ ] Copy manifests to your master host (or run from a machine with kubeconfig context to your K3s cluster).
+- [ ] Apply in order:
+  ```powershell
+  cd infra/k8s
+  .\apply.ps1
+  ```
+  Linux/macOS alternative:
+  ```bash
+  cd infra/k8s
+  bash apply.sh
+  ```
+
+#### 5.6 — Verify deployment
+- [ ] Check pods/services/PVC:
+  ```bash
+  kubectl -n smart-interviewer get pods,svc,pvc
+  ```
+- [ ] Access app via NodePort:
+  - `http://<MASTER_PUBLIC_IP>:30080`
+
+#### 5.7 — Basic smoke test
+- [ ] In browser, open frontend NodePort URL.
+- [ ] Verify backend health through proxied API:
+  - `http://<MASTER_PUBLIC_IP>:30080/api/health`
+- [ ] Verify categories load in UI (frontend should no longer call `localhost:8000`).
+
+---
+
+## Phase 6 — CI/CD (GitHub Actions) ✅
+
+### What was generated
+- `.github/workflows/phase6-cicd-k3s.yml`
+
+### What you must do manually
+
+#### 6.1 — Push your repository to GitHub
+- [ ] Ensure this project is hosted in a GitHub repository with Actions enabled.
+- [ ] Push your latest branch to `main`.
+
+#### 6.2 — Add required GitHub repository secrets
+- [ ] Open **GitHub Repo → Settings → Secrets and variables → Actions**.
+- [ ] Create these secrets:
+  - `DOCKERHUB_USERNAME` = your Docker Hub username
+  - `DOCKERHUB_TOKEN` = Docker Hub access token (not password)
+  - `K3S_HOST` = master public IP (e.g. `3.231.151.216`)
+  - `K3S_SSH_USER` = `ubuntu`
+  - `K3S_SSH_PRIVATE_KEY` = private SSH key content used for EC2 access
+  - `K3S_SSH_PORT` = `22` (optional; defaults to 22)
+
+#### 6.3 — First pipeline run
+- [ ] Trigger workflow manually from **Actions → Phase 6 - CI/CD to K3s → Run workflow**.
+- [ ] Confirm both jobs pass:
+  - `Build and Push Images`
+  - `Deploy to K3s`
+
+#### 6.4 — Verify deployment result
+- [ ] Open app URL:
+  - `http://<MASTER_PUBLIC_IP>:30080`
+- [ ] Verify API health:
+  - `http://<MASTER_PUBLIC_IP>:30080/api/health`
+- [ ] Verify new image tags are set on cluster:
+  ```bash
+  kubectl -n smart-interviewer get deploy backend frontend -o=jsonpath='{range .items[*]}{.metadata.name}{" => "}{.spec.template.spec.containers[0].image}{"\n"}{end}'
+  ```
+
+#### 6.5 — Ongoing usage
+- [ ] Any push to `main` touching `backend/**`, `frontend/**`, `infra/k8s/**`, or workflow file auto-triggers build + deploy.
+- [ ] Use manual dispatch for controlled releases when needed.
+
 ---
 
 ## Quick Reference — Credentials to Keep Safe
@@ -150,7 +354,3 @@ PS D:\Jira_Project>
 | Docker Hub password | Image push/pull | Set in Docker Hub account settings |
 | AWS Access Key + Secret | Terraform (Phase 3) | IAM → Create access key |
 | SSH key pair | EC2 access / Ansible | `ssh-keygen -t ed25519 -f ~/.ssh/svi_key` |
-
----
-
-*Phases 3–7 manual steps will be added here as each phase is completed.*

@@ -60,7 +60,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES  = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(
 SIMILARITY_THRESHOLD         = float(os.getenv("SIMILARITY_THRESHOLD", "0.6"))
 NUM_QUESTIONS                = int(os.getenv("NUM_QUESTIONS", "3"))
 
-BASE_DIR            = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR            = os.path.dirname(os.path.abspath(__file__))
 KNOWLEDGE_BASE_FILE = os.getenv("KB_FILE",      os.path.join(BASE_DIR, "final_knowledge_base.csv"))
 COURSE_CATALOG_FILE = os.getenv("COURSES_FILE", os.path.join(BASE_DIR, "course_catalog.csv"))
 
@@ -249,6 +249,10 @@ class UserProfileUpdate(BaseModel):
 # Utility
 # ---------------------------------------------------------------------------
 
+def _assert_questions_loaded() -> None:
+    if df_questions is None:
+        raise HTTPException(status_code=503, detail="Question data not yet loaded - please retry in a moment")
+
 def _assert_data_loaded() -> None:
     if df_questions is None or df_courses is None:
         raise HTTPException(status_code=503, detail="Data not yet loaded - please retry in a moment")
@@ -278,7 +282,7 @@ async def health():
 
 @app.get("/categories", tags=["General"])
 async def list_categories():
-    _assert_data_loaded()
+    _assert_questions_loaded()
     counts = df_questions["Category"].value_counts().head(20).to_dict()
     return {"total_categories": df_questions["Category"].nunique(), "top_categories": counts}
 

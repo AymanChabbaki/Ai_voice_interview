@@ -40,6 +40,8 @@ WORKDIR /app
 # Copy application source
 COPY app.py      .
 COPY database.py .
+COPY final_knowledge_base.csv .
+COPY course_catalog.csv .
 
 # Model artefacts are mounted from a Kubernetes volume at /app/models.
 # CSV datasets are mounted at /app/data.

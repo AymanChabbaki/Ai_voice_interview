@@ -1,0 +1,152 @@
+---
+- name: Prepare all nodes for K3s
+  hosts: k3s_cluster
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Wait for apt/dpkg background locks to clear
+      ansible.builtin.shell: |
+        timeout 60 bash -c 'while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do sleep 3; done'
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+        lock_timeout: 300
+
+    - name: Install required system packages
+      ansible.builtin.apt:
+        name:
+          - curl
+          - ca-certificates
+          - gnupg
+          - apt-transport-https
+        state: present
+
+    - name: Disable swap at runtime
+      ansible.builtin.command: swapoff -a
+      changed_when: false
+
+    - name: Disable swap in fstab
+      ansible.builtin.replace:
+        path: /etc/fstab
+        regexp: '^(.*\sswap\s+sw\s+.*)$'
+        replace: '# \1'
+
+    - name: Ensure IPv4 forwarding is enabled
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/99-k3s.conf
+        content: |
+          net.ipv4.ip_forward=1
+        mode: "0644"
+
+    - name: Apply sysctl settings
+      ansible.builtin.command: sysctl --system
+      changed_when: false
+
+- name: Install K3s master
+  hosts: master
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Install K3s server
+      ansible.builtin.shell: |
+        curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --write-kubeconfig-mode 644 --disable=traefik --disable=servicelb --disable=metrics-server --node-taint node-role.kubernetes.io/control-plane=true:NoSchedule" sh -
+      args:
+        creates: /usr/local/bin/k3s
+
+    - name: Wait for K3s server to become active
+      ansible.builtin.systemd:
+        name: k3s
+        state: started
+        enabled: true
+
+    - name: Read K3s node token from master
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      register: k3s_node_token_b64
+
+    - name: Save decoded token for worker join
+      ansible.builtin.set_fact:
+        k3s_node_token: "{{ k3s_node_token_b64.content | b64decode | trim }}"
+
+- name: Install K3s worker(s)
+  hosts: worker
+  become: true
+  gather_facts: false
+  vars:
+    master_host: "{{ hostvars[groups['master'][0]].k3s_api_host | default(hostvars[groups['master'][0]].ansible_host | default(groups['master'][0])) }}"
+    provided_master_token: "{{ k3s_join_token | default('') }}"
+  tasks:
+    - name: Read K3s node token from master when not present
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      delegate_to: "{{ groups['master'][0] }}"
+      run_once: true
+      register: delegated_k3s_node_token_b64
+      when:
+        - provided_master_token == ""
+        - hostvars[groups['master'][0]].k3s_node_token is not defined
+
+    - name: Resolve master token for worker join from extra var
+      ansible.builtin.set_fact:
+        master_token: "{{ provided_master_token }}"
+      when: provided_master_token != ""
+
+    - name: Resolve master token for worker join from master hostvar
+      ansible.builtin.set_fact:
+        master_token: "{{ hostvars[groups['master'][0]].k3s_node_token }}"
+      when:
+        - provided_master_token == ""
+        - hostvars[groups['master'][0]].k3s_node_token is defined
+
+    - name: Resolve master token for worker join from delegated slurp
+      ansible.builtin.set_fact:
+        master_token: "{{ delegated_k3s_node_token_b64.content | b64decode | trim }}"
+      when:
+        - provided_master_token == ""
+        - hostvars[groups['master'][0]].k3s_node_token is not defined
+
+    - name: Validate K3s join token is not placeholder
+      ansible.builtin.assert:
+        that:
+          - master_token is defined
+          - master_token | length > 10
+          - master_token != "TOKEN_VALUE"
+        fail_msg: "Invalid k3s_join_token provided. Use the real token from /var/lib/rancher/k3s/server/node-token on master."
+        success_msg: "K3s join token validated."
+
+    - name: Install K3s agent and join cluster
+      ansible.builtin.shell: |
+        curl -sfL https://get.k3s.io | K3S_URL="https://{{ master_host }}:6443" K3S_TOKEN="{{ master_token }}" sh -
+
+    - name: Ensure K3s agent service is running
+      ansible.builtin.systemd:
+        name: k3s-agent
+        state: started
+        enabled: true
+
+- name: Verify cluster from master
+  hosts: master
+  become: true
+  gather_facts: false
+  vars:
+    expected_ready_nodes: "{{ 1 if (ansible_limit is defined and ansible_limit == 'master') else 2 }}"
+  tasks:
+    - name: Wait until both nodes are Ready
+      ansible.builtin.command: kubectl get nodes --no-headers
+      register: nodes_out
+      retries: 30
+      delay: 10
+      until: >-
+        nodes_out.stdout_lines | length >= (expected_ready_nodes | int)
+        and
+        (nodes_out.stdout_lines | select('search', '\\sReady\\s') | list | length) >= (expected_ready_nodes | int)
+      changed_when: false
+
+    - name: Show node status
+      ansible.builtin.debug:
+        var: nodes_out.stdout_lines
