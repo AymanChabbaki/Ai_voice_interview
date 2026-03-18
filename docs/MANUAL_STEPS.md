@@ -318,7 +318,7 @@
 - [ ] Create these secrets:
   - `DOCKERHUB_USERNAME` = your Docker Hub username
   - `DOCKERHUB_TOKEN` = Docker Hub access token (not password)
-  - `K3S_HOST` = master public IP (e.g. `3.231.151.216`)
+  - `K3S_HOST` = master public IP (for example, your current master public IP)
   - `K3S_SSH_USER` = `ubuntu`
   - `K3S_SSH_PRIVATE_KEY` = private SSH key content used for EC2 access
   - `K3S_SSH_PORT` = `22` (optional; defaults to 22)
