@@ -3,7 +3,6 @@ import './App.css';
 import { celebrate, fireworks } from './confetti';
 import AppNavbar from './components/AppNavbar';
 import HomePage from './components/pages/HomePage';
-import MagiquePage from './components/pages/MagiquePage';
 import ResourcePage from './components/pages/ResourcePage';
 import AppFooter from './components/AppFooter';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -145,7 +144,6 @@ const PROTECTED_PAGES = ['dashboard', 'interview', 'mock-interviews', 'progress-
 
 const PAGE_TO_PATH = {
   home: '/',
-  magique: '/magique',
   dashboard: '/dashboard',
   interview: '/interview',
   'mock-interviews': '/platform/mock-interviews',
@@ -538,11 +536,18 @@ function App() {
         throw new Error(detail);
       }
 
-      if (!data || !data.top_categories || typeof data.top_categories !== 'object') {
+      const hasTopCategories = data && data.top_categories && typeof data.top_categories === 'object';
+      const hasAllCategories = data && Array.isArray(data.categories);
+
+      if (!hasTopCategories && !hasAllCategories) {
         throw new Error('Invalid categories payload from API');
       }
 
-      setCategories(Object.keys(data.top_categories).map(name => ({ name })));
+      const categoryNames = hasAllCategories
+        ? data.categories
+        : Object.keys(data.top_categories);
+
+      setCategories(categoryNames.map(name => ({ name })));
       setIsCategoriesLoading(false);
     } catch (err) {
       console.error('Failed to load categories:', err);
@@ -841,14 +846,6 @@ function App() {
             <AlertCircle size={20} />
             <span><strong>Error:</strong> {error}</span>
           </div>
-        )}
-
-        {currentPage === 'magique' && !sessionId && !results && (
-          <MagiquePage
-            isAuthenticated={isAuthenticated}
-            setCurrentPage={setCurrentPage}
-            setShowAuth={setShowAuth}
-          />
         )}
 
         {currentPage === 'home' && !sessionId && !results && (

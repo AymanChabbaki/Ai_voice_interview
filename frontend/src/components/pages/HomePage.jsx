@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   Sparkles,
   Shield,
@@ -25,6 +26,24 @@ function HomePage({
   setShowDashboard,
   setShowAuth
 }) {
+  const assistantLines = [
+    "Don't click me. Your last click was already suspicious.",
+    'Breathe. You are one focused session away from sounding elite.',
+    'Your confidence is loading... please stop panic-scrolling.',
+    'You are better than you think. Say it clearly and own the room.',
+    'If chaos had a voice, it would still interview better after this practice.'
+  ];
+
+  const [assistantLineIndex, setAssistantLineIndex] = useState(0);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setAssistantLineIndex((prev) => (prev + 1) % assistantLines.length);
+    }, 5200);
+
+    return () => clearInterval(intervalId);
+  }, [assistantLines.length]);
+
   return (
     <div className="home-page">
       <section className="home-hero home-hero-magnifique">
@@ -93,12 +112,16 @@ function HomePage({
                   <Rocket size={20} />
                   Get Started Free
                 </button>
-                <button className="btn btn-secondary btn-large" onClick={() => setCurrentPage('magique')}>
+                <button className="btn btn-secondary btn-large" onClick={() => setCurrentPage('question-library')}>
                   <Play size={20} />
-                  Enter Magique
+                  Question Library
                 </button>
               </>
             )}
+          </div>
+
+          <div className="hero-scroll-voice" aria-hidden="true">
+            <span>Scroll with your voice • Speak clearly • Build presence • Win interviews •</span>
           </div>
 
           {isAuthenticated && userProfile && (
@@ -121,36 +144,45 @@ function HomePage({
           )}
         </div>
 
-        <div className="home-hero-visual">
-          <div className="hero-visual-card hero-visual-3d">
-            <div className="hero-3d-shell">
-              <div className="hero-3d-glow" aria-hidden="true" />
-              <model-viewer
-                className="hero-model-viewer"
-                src="https://modelviewer.dev/shared-assets/models/Astronaut.glb"
-                poster="https://modelviewer.dev/assets/poster-astronaut.webp"
-                camera-controls
-                auto-rotate
-                shadow-intensity="1"
-                environment-image="neutral"
-                exposure="1"
-              >
-              </model-viewer>
-            </div>
+        <div className="home-hero-visual home-hero-surface">
+          <model-viewer
+            className="hero-model-floating"
+            src="https://modelviewer.dev/shared-assets/models/Astronaut.glb"
+            poster="https://modelviewer.dev/assets/poster-astronaut.webp"
+            camera-controls
+            auto-rotate
+            shadow-intensity="1"
+            environment-image="neutral"
+            exposure="1"
+          >
+          </model-viewer>
 
-            <div className="hero-floating-cards">
-              <div className="floating-card">
-                <CheckCircle2 size={20} />
-                <span>Adaptive Question Flow</span>
-              </div>
-              <div className="floating-card">
-                <Crown size={20} />
-                <span>Elite Mode Feedback</span>
-              </div>
+          <div className="hero-floating-cards hero-floating-surface">
+            <div className="floating-card">
+              <CheckCircle2 size={20} />
+              <span>Adaptive Question Flow</span>
+            </div>
+            <div className="floating-card">
+              <Crown size={20} />
+              <span>Elite Mode Feedback</span>
             </div>
           </div>
         </div>
       </section>
+
+      <div className="assistant-3d-float">
+        <div className="assistant-chat-bubble">{assistantLines[assistantLineIndex]}</div>
+        <model-viewer
+          className="assistant-model"
+          src="https://modelviewer.dev/shared-assets/models/RobotExpressive.glb"
+          auto-rotate
+          shadow-intensity="1"
+          environment-image="neutral"
+          exposure="1"
+          disable-zoom
+        >
+        </model-viewer>
+      </div>
 
       <section className="home-section">
         <div className="section-header-center">

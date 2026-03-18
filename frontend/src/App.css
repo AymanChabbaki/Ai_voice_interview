@@ -4654,4 +4654,213 @@ body {
   }
 }
 
+/* ============================
+   Footer + Hero Rework
+   ============================ */
+
+.footer-grid-compact {
+  grid-template-columns: 1.45fr minmax(200px, 1fr) minmax(220px, 1fr);
+}
+
+.home-hero-magnifique {
+  grid-template-columns: 1.05fr 0.95fr;
+  border-radius: 36px;
+  padding: clamp(1.4rem, 3.8vw, 3rem);
+  background:
+    radial-gradient(circle at 18% 20%, rgba(16, 185, 129, 0.2), transparent 42%),
+    radial-gradient(circle at 84% 78%, rgba(255, 107, 107, 0.16), transparent 46%),
+    linear-gradient(160deg, #141416 0%, #18181b 58%, #212124 100%);
+}
+
+.home-hero-magnifique .hero-badge,
+.home-hero-magnifique .home-hero-subtitle,
+.home-hero-magnifique .trust-pill,
+.home-hero-magnifique .home-hero-title {
+  color: #fafafa;
+}
+
+.home-hero-surface {
+  position: sticky;
+  top: 90px;
+  min-height: 560px;
+  border-radius: 0;
+  overflow: visible;
+  background: transparent;
+  border: none;
+}
+
+.hero-model-floating {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: min(100%, 640px);
+  margin: 0 auto;
+  height: 560px;
+  background: transparent;
+  filter: drop-shadow(0 30px 44px rgba(0, 0, 0, 0.38));
+  animation: heroModelFloat 6.2s ease-in-out infinite;
+}
+
+.hero-floating-surface {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 6%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  z-index: 3;
+}
+
+.hero-scroll-voice {
+  margin-top: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.hero-scroll-voice span {
+  display: inline-block;
+  padding: 0.45rem 0.7rem;
+  color: #a7f3d0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  animation: marqueeVoice 14s linear infinite;
+}
+
+@keyframes marqueeVoice {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-45%); }
+}
+
+@keyframes heroModelFloat {
+  0%,
+  100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+
+.assistant-3d-float {
+  position: fixed;
+  right: 22px;
+  bottom: 20px;
+  width: 132px;
+  height: 132px;
+  z-index: 60;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, rgba(16, 185, 129, 0.25), rgba(16, 185, 129, 0));
+  filter: drop-shadow(0 14px 26px rgba(24, 24, 27, 0.22));
+  animation: assistantHover 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.assistant-chat-bubble {
+  position: absolute;
+  right: 105%;
+  top: 10%;
+  width: 220px;
+  padding: 0.62rem 0.72rem;
+  border-radius: 12px;
+  background: rgba(24, 24, 27, 0.92);
+  border: 1px solid rgba(16, 185, 129, 0.34);
+  color: #fafafa;
+  font-size: 0.76rem;
+  line-height: 1.3;
+  font-weight: 600;
+  box-shadow: 0 10px 20px rgba(24, 24, 27, 0.3);
+  animation: bubblePop 0.35s ease;
+}
+
+.assistant-chat-bubble::after {
+  content: '';
+  position: absolute;
+  right: -7px;
+  top: 18px;
+  border-width: 7px 0 7px 7px;
+  border-style: solid;
+  border-color: transparent transparent transparent rgba(24, 24, 27, 0.92);
+}
+
+.assistant-model {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+@keyframes assistantHover {
+  0%,
+  100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes bubblePop {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1100px) {
+  .footer-grid-compact {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .home-hero-magnifique {
+    grid-template-columns: 1fr;
+  }
+
+  .home-hero-surface {
+    position: relative;
+    top: auto;
+    min-height: 470px;
+  }
+
+  .hero-model-floating {
+    height: 470px;
+  }
+}
+
+@media (max-width: 768px) {
+  .footer-grid-compact {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-floating-surface {
+    grid-template-columns: 1fr;
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    margin-top: -72px;
+  }
+
+  .hero-scroll-voice span {
+    animation-duration: 18s;
+  }
+
+  .hero-model-floating {
+    height: 390px;
+  }
+
+  .assistant-3d-float {
+    width: 96px;
+    height: 96px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .assistant-chat-bubble {
+    width: 170px;
+    font-size: 0.68rem;
+    right: 100%;
+  }
+}
+
 

@@ -29,7 +29,7 @@ function AppFooter({ isAuthenticated, setCurrentPage, setShowAuth, onFooterNavig
           </button>
         </div>
 
-        <div className="footer-grid footer-grid-redesign">
+        <div className="footer-grid footer-grid-redesign footer-grid-compact">
           <div className="footer-brand">
             <div className="footer-brand-title">
               <img src="/logo.png" alt="Smart Voice Interviewer logo" className="brand-logo" />
@@ -61,14 +61,6 @@ function AppFooter({ isAuthenticated, setCurrentPage, setShowAuth, onFooterNavig
             <a href="#" onClick={(e) => { e.preventDefault(); onFooterNavigate('question-library'); }}>Question Library</a>
             <a href="#" onClick={(e) => { e.preventDefault(); onFooterNavigate('progress-dashboard'); }}>Progress Dashboard</a>
             <a href="#" onClick={(e) => { e.preventDefault(); onFooterNavigate('achievement-paths'); }}>Achievement Paths</a>
-          </div>
-
-          <div className="footer-column">
-            <h4>Resources</h4>
-            <a href="#" onClick={(e) => { e.preventDefault(); onFooterNavigate('interview-playbooks'); }}>Interview Playbooks</a>
-            <a href="#" onClick={(e) => { e.preventDefault(); onFooterNavigate('coaching-tips'); }}>Coaching Tips</a>
-            <a href="#" onClick={(e) => { e.preventDefault(); onFooterNavigate('weekly-drills'); }}>Weekly Drills</a>
-            <a href="#" onClick={(e) => { e.preventDefault(); onFooterNavigate('roadmaps'); }}>Roadmaps</a>
           </div>
 
           <div className="footer-column footer-column-cta">

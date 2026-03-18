@@ -60,6 +60,13 @@ ACCESS_TOKEN_EXPIRE_MINUTES  = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(
 SIMILARITY_THRESHOLD         = float(os.getenv("SIMILARITY_THRESHOLD", "0.6"))
 NUM_QUESTIONS                = int(os.getenv("NUM_QUESTIONS", "3"))
 
+TOPIC_ALIASES: Dict[str, List[str]] = {
+    "deep learning": ["machine learning", "artificial intelligence"],
+    "machine learning": ["deep learning", "artificial intelligence"],
+    "ai": ["artificial intelligence", "machine learning", "deep learning"],
+    "artificial intelligence": ["ai", "machine learning", "deep learning"],
+}
+
 BASE_DIR            = os.path.dirname(os.path.abspath(__file__))
 KNOWLEDGE_BASE_FILE = os.getenv("KB_FILE",      os.path.join(BASE_DIR, "final_knowledge_base.csv"))
 COURSE_CATALOG_FILE = os.getenv("COURSES_FILE", os.path.join(BASE_DIR, "course_catalog.csv"))
@@ -283,8 +290,12 @@ async def health():
 @app.get("/categories", tags=["General"])
 async def list_categories():
     _assert_questions_loaded()
-    counts = df_questions["Category"].value_counts().head(20).to_dict()
-    return {"total_categories": df_questions["Category"].nunique(), "top_categories": counts}
+    counts = df_questions["Category"].value_counts()
+    return {
+        "total_categories": int(df_questions["Category"].nunique()),
+        "top_categories": counts.head(20).to_dict(),
+        "categories": sorted(df_questions["Category"].dropna().astype(str).unique().tolist()),
+    }
 
 @app.get("/statistics", tags=["General"])
 async def get_statistics():
@@ -338,9 +349,28 @@ async def get_current_user(user_id: str = Depends(_require_auth)):
 async def start_interview(body: InterviewStartRequest):
     _assert_data_loaded()
 
-    pool = df_questions[
-        df_questions["Category"].str.contains(body.topic, case=False, na=False)
-    ]
+    requested_topic = body.topic.strip()
+    requested_key = requested_topic.lower()
+
+    search_terms: List[str] = [requested_topic]
+    search_terms.extend(TOPIC_ALIASES.get(requested_key, []))
+
+    category_mask = pd.Series(False, index=df_questions.index)
+    question_mask = pd.Series(False, index=df_questions.index)
+
+    for term in search_terms:
+        category_mask = category_mask | df_questions["Category"].str.contains(re.escape(term), case=False, na=False, regex=True)
+        question_mask = question_mask | df_questions["Question"].str.contains(re.escape(term), case=False, na=False, regex=True)
+
+    pool = df_questions[category_mask | question_mask]
+
+    if pool.empty:
+        tokens = [t for t in re.split(r"\W+", requested_topic.lower()) if len(t) >= 4]
+        for token in tokens:
+            category_mask = category_mask | df_questions["Category"].str.contains(re.escape(token), case=False, na=False, regex=True)
+            question_mask = question_mask | df_questions["Question"].str.contains(re.escape(token), case=False, na=False, regex=True)
+        pool = df_questions[category_mask | question_mask]
+
     pool = pool[
         ~pool["Answer"].str.contains(
             r"Coding solution to be provided|to be provided during interview",
@@ -363,7 +393,7 @@ async def start_interview(body: InterviewStartRequest):
                 pool = filtered
 
     if pool.empty:
-        raise HTTPException(status_code=404, detail=f"No valid questions found for topic: {body.topic}")
+        raise HTTPException(status_code=404, detail=f"No valid questions found for topic: {requested_topic}")
 
     n          = min(body.num_questions or NUM_QUESTIONS, len(pool))
     selected   = pool.sample(n=n)
@@ -385,7 +415,7 @@ async def start_interview(body: InterviewStartRequest):
 
     active_interviews[session_id] = {
         "session_id":       session_id,
-        "topic":            body.topic,
+        "topic":            requested_topic,
         "questions":        questions,
         "answers":          [],
         "current_question": 0,
@@ -394,10 +424,10 @@ async def start_interview(body: InterviewStartRequest):
     }
 
     first = questions[0]
-    logger.info("Interview started | session=%s topic=%s", session_id, body.topic)
+    logger.info("Interview started | session=%s topic=%s", session_id, requested_topic)
     return {
         "session_id":       session_id,
-        "topic":            body.topic,
+        "topic":            requested_topic,
         "total_questions":  len(questions),
         "current_question": {k: first[k] for k in ("index", "question", "category", "difficulty")},
         "threshold":        SIMILARITY_THRESHOLD,

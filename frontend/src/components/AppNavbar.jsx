@@ -1,4 +1,4 @@
-import { Flame, History, Trophy, User, LogOut, Rocket, Compass, LayoutDashboard, Mic2, Sparkles } from 'lucide-react';
+import { Flame, History, Trophy, User, LogOut, Rocket, Home, LayoutDashboard, Mic2, Sparkles } from 'lucide-react';
 
 function AppNavbar({
   currentPage,
@@ -12,7 +12,7 @@ function AppNavbar({
   setShowAuth
 }) {
   const navItems = [
-    { key: 'magique', label: 'Explore', icon: <Compass size={15} />, hint: 'Discover tracks' },
+    { key: 'home', label: 'Home', icon: <Home size={15} />, hint: 'Main experience' },
     ...(isAuthenticated
       ? [
           { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={15} />, hint: 'Track progress' },
