@@ -288,6 +288,10 @@ function App() {
     }
   }, [location.pathname, navigate]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [location.pathname]);
+
   const verifyToken = async () => {
     try {
       const response = await apiCall(`${API_BASE_URL}/me`);
@@ -859,6 +863,7 @@ function App() {
 
         {FOOTER_PAGES[currentPage] && !sessionId && !results && (
           <ResourcePage
+            pageKey={currentPage}
             section={FOOTER_PAGES[currentPage].section}
             title={FOOTER_PAGES[currentPage].title}
             description={FOOTER_PAGES[currentPage].description}

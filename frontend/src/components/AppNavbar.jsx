@@ -1,4 +1,4 @@
-import { Flame, History, Trophy, User, LogOut, Rocket } from 'lucide-react';
+import { Flame, History, Trophy, User, LogOut, Rocket, Compass, LayoutDashboard, Mic2, Sparkles } from 'lucide-react';
 
 function AppNavbar({
   currentPage,
@@ -11,6 +11,16 @@ function AppNavbar({
   handleLogout,
   setShowAuth
 }) {
+  const navItems = [
+    { key: 'magique', label: 'Explore', icon: <Compass size={15} />, hint: 'Discover tracks' },
+    ...(isAuthenticated
+      ? [
+          { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={15} />, hint: 'Track progress' },
+          { key: 'interview', label: 'Interview', icon: <Mic2 size={15} />, hint: 'Practice now' }
+        ]
+      : [])
+  ];
+
   return (
     <header className="header">
       <div className="header-content">
@@ -23,28 +33,24 @@ function AppNavbar({
         </div>
 
         <div className="navbar-center">
-          <button
-            className={`nav-pill ${currentPage === 'magique' ? 'active' : ''}`}
-            onClick={() => setCurrentPage('magique')}
-          >
-            Explore
-          </button>
-          {isAuthenticated && (
-            <>
-              <button
-                className={`nav-pill ${currentPage === 'dashboard' ? 'active' : ''}`}
-                onClick={() => setCurrentPage('dashboard')}
-              >
-                Dashboard
-              </button>
-              <button
-                className={`nav-pill ${currentPage === 'interview' ? 'active' : ''}`}
-                onClick={() => setCurrentPage('interview')}
-              >
-                Interview
-              </button>
-            </>
-          )}
+          {navItems.map((item) => (
+            <button
+              key={item.key}
+              className={`nav-pill nav-pill-rich ${currentPage === item.key ? 'active' : ''}`}
+              onClick={() => setCurrentPage(item.key)}
+            >
+              <span className="nav-pill-icon">{item.icon}</span>
+              <span className="nav-pill-copy">
+                <strong>{item.label}</strong>
+                <small>{item.hint}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="navbar-signal" title="Human & Hired mode active">
+          <Sparkles size={14} />
+          <span>Human & Hired</span>
         </div>
 
         <div className="header-actions">
