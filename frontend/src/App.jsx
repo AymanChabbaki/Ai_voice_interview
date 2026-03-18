@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 import { celebrate, fireworks } from './confetti';
+import AppNavbar from './components/AppNavbar';
+import HomePage from './components/pages/HomePage';
+import MagiquePage from './components/pages/MagiquePage';
+import ResourcePage from './components/pages/ResourcePage';
+import AppFooter from './components/AppFooter';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Brain, 
   CheckCircle2, 
@@ -12,8 +18,6 @@ import {
   Play, 
   RefreshCw,
   AlertCircle,
-  Wifi,
-  WifiOff,
   Loader2,
   Target,
   ArrowRight,
@@ -26,14 +30,12 @@ import {
   History,
   Timer,
   LogOut,
-  LogIn,
   User,
   Star,
   Medal,
   Zap,
   Crown,
   Sparkles,
-  Home,
   BarChart3,
   Calendar,
   FileText,
@@ -47,6 +49,118 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 const CATEGORIES_RETRY_DELAY_MS = 5000;
 const MAX_CATEGORIES_RETRIES = 12;
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,32}$/;
+
+const FOOTER_PAGES = {
+  'mock-interviews': {
+    section: 'Platform',
+    title: 'Mock Interviews',
+    requiresAuth: true,
+    description: 'Run realistic interview simulations with adaptive prompts and score breakdowns.',
+    highlights: [
+      { title: 'Role-based prompts', text: 'Practice with focused prompts aligned to your target role and level.' },
+      { title: 'Timed rounds', text: 'Train response structure under realistic pressure windows.' },
+      { title: 'Answer review', text: 'Get clear feedback on quality, clarity, and confidence.' }
+    ]
+  },
+  'question-library': {
+    section: 'Platform',
+    title: 'Question Library',
+    requiresAuth: false,
+    description: 'Explore curated interview question sets across technical and behavioral categories.',
+    highlights: [
+      { title: 'Category coverage', text: 'Browse system design, algorithms, frontend, backend, and behavioral topics.' },
+      { title: 'Difficulty levels', text: 'Move from beginner to advanced with structured progression.' },
+      { title: 'Practice ready', text: 'Turn any question into a practice session in seconds.' }
+    ]
+  },
+  'progress-dashboard': {
+    section: 'Platform',
+    title: 'Progress Dashboard',
+    requiresAuth: true,
+    description: 'Track interview performance trends and identify areas with highest improvement ROI.',
+    highlights: [
+      { title: 'Score trends', text: 'Visualize accuracy and communication improvement over time.' },
+      { title: 'Weak spots', text: 'Find recurring pain points to prioritize your next practice cycle.' },
+      { title: 'Momentum view', text: 'Monitor streaks and consistency to maintain growth cadence.' }
+    ]
+  },
+  'achievement-paths': {
+    section: 'Platform',
+    title: 'Achievement Paths',
+    requiresAuth: true,
+    description: 'Unlock milestone paths designed to build confidence and interview consistency.',
+    highlights: [
+      { title: 'Milestone ladders', text: 'Complete focused challenge tracks with increasing complexity.' },
+      { title: 'Skill badges', text: 'Earn visible proof-points for readiness and consistency.' },
+      { title: 'Practice goals', text: 'Set weekly goals that align to your next interview timeline.' }
+    ]
+  },
+  'interview-playbooks': {
+    section: 'Resources',
+    title: 'Interview Playbooks',
+    requiresAuth: false,
+    description: 'Structured frameworks for answering common and high-pressure interview questions.',
+    highlights: [
+      { title: 'Answer frameworks', text: 'Use practical structures to keep responses concise and convincing.' },
+      { title: 'Scenario examples', text: 'Study high-quality examples for technical and behavioral rounds.' },
+      { title: 'Execution tips', text: 'Avoid common pitfalls and communicate with stronger signal.' }
+    ]
+  },
+  'coaching-tips': {
+    section: 'Resources',
+    title: 'Coaching Tips',
+    requiresAuth: false,
+    description: 'Micro-coaching insights that improve confidence, pacing, and interviewer engagement.',
+    highlights: [
+      { title: 'Delivery polish', text: 'Improve tone, pace, and confidence without sounding robotic.' },
+      { title: 'Communication habits', text: 'Reduce filler and increase answer clarity in real time.' },
+      { title: 'Interviewer alignment', text: 'Frame your value in language hiring teams care about.' }
+    ]
+  },
+  'weekly-drills': {
+    section: 'Resources',
+    title: 'Weekly Drills',
+    requiresAuth: false,
+    description: 'Weekly challenge cycles to sharpen consistency and maintain interview readiness.',
+    highlights: [
+      { title: 'Short sprints', text: '10 to 20 minute focused drills for busy preparation windows.' },
+      { title: 'Topic rotation', text: 'Cycle through technical, behavioral, and communication goals.' },
+      { title: 'Measurable growth', text: 'Use small, repeatable drills to build compounding progress.' }
+    ]
+  },
+  roadmaps: {
+    section: 'Resources',
+    title: 'Roadmaps',
+    requiresAuth: false,
+    description: 'Preparation roadmaps that guide your journey from baseline practice to interview day.',
+    highlights: [
+      { title: '4-week plans', text: 'Follow practical preparation timelines with clear checkpoints.' },
+      { title: 'Role-specific tracks', text: 'Use plans tailored to frontend, backend, and full-stack targets.' },
+      { title: 'Final-week prep', text: 'Use confidence routines before your real interview window.' }
+    ]
+  }
+};
+
+const PROTECTED_PAGES = ['dashboard', 'interview', 'mock-interviews', 'progress-dashboard', 'achievement-paths'];
+
+const PAGE_TO_PATH = {
+  home: '/',
+  magique: '/magique',
+  dashboard: '/dashboard',
+  interview: '/interview',
+  'mock-interviews': '/platform/mock-interviews',
+  'question-library': '/platform/question-library',
+  'progress-dashboard': '/platform/progress-dashboard',
+  'achievement-paths': '/platform/achievement-paths',
+  'interview-playbooks': '/resources/interview-playbooks',
+  'coaching-tips': '/resources/coaching-tips',
+  'weekly-drills': '/resources/weekly-drills',
+  roadmaps: '/resources/roadmaps'
+};
+
+const PATH_TO_PAGE = Object.fromEntries(
+  Object.entries(PAGE_TO_PATH).map(([page, path]) => [path, page])
+);
 
 export const parseApiErrorMessage = async (response, fallbackMessage) => {
   try {
@@ -102,6 +216,9 @@ const apiCall = async (url, options = {}) => {
 };
 
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // Authentication States
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -124,7 +241,8 @@ function App() {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [apiStatus, setApiStatus] = useState('checking...');
+  const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [recognition, setRecognition] = useState(null);
   
@@ -148,8 +266,13 @@ function App() {
   const [questionStartTime, setQuestionStartTime] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showDashboard, setShowDashboard] = useState(true);
-  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'dashboard', 'interview'
   const [showAuth, setShowAuth] = useState(false);
+
+  const currentPage = PATH_TO_PAGE[location.pathname] || 'home';
+  const setCurrentPage = (page) => {
+    const nextPath = PAGE_TO_PATH[page] || PAGE_TO_PATH.home;
+    navigate(nextPath);
+  };
 
   // Check authentication on mount
   useEffect(() => {
@@ -158,6 +281,12 @@ function App() {
       verifyToken();
     }
   }, []);
+
+  useEffect(() => {
+    if (!PATH_TO_PAGE[location.pathname]) {
+      navigate(PAGE_TO_PATH.home, { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   const verifyToken = async () => {
     try {
@@ -274,6 +403,19 @@ function App() {
     setInterviewHistory([]);
   };
 
+  const navigateFooterPage = (pageKey) => {
+    const page = FOOTER_PAGES[pageKey];
+    if (!page) return;
+
+    if (page.requiresAuth && !isAuthenticated) {
+      setAuthMode('login');
+      setShowAuth(true);
+      return;
+    }
+
+    setCurrentPage(pageKey);
+  };
+
   // Initialize speech recognition
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -328,8 +470,9 @@ function App() {
 
   // Protect dashboard and interview pages - require authentication
   useEffect(() => {
-    if (!isAuthenticated && (currentPage === 'dashboard' || currentPage === 'interview')) {
+    if (!isAuthenticated && PROTECTED_PAGES.includes(currentPage)) {
       setShowAuth(true);
+      setAuthMode('login');
       setCurrentPage('home');
     }
   }, [currentPage, isAuthenticated]);
@@ -344,18 +487,32 @@ function App() {
     }
   }, [currentQuestion, questionStartTime]);
 
+  useEffect(() => {
+    // Inject model-viewer once so we can render a lightweight web-hosted 3D scene in the hero.
+    if (document.querySelector('script[data-model-viewer="true"]')) {
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.type = 'module';
+    script.src = 'https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js';
+    script.setAttribute('data-model-viewer', 'true');
+    document.head.appendChild(script);
+  }, []);
+
   const checkAPIHealth = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/health`);
-      const data = await response.json();
-      setApiStatus(data.status === 'healthy' ? 'connected' : 'issues');
+      await fetch(`${API_BASE_URL}/health`);
     } catch (err) {
-      setApiStatus('offline');
       setError('Cannot connect to backend API. Check the frontend API base URL configuration and backend availability.');
     }
   };
 
   const loadCategories = async (attempt = 0) => {
+    if (attempt === 0) {
+      setIsCategoriesLoading(true);
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/categories`);
       let data = null;
@@ -382,9 +539,11 @@ function App() {
       }
 
       setCategories(Object.keys(data.top_categories).map(name => ({ name })));
+      setIsCategoriesLoading(false);
     } catch (err) {
       console.error('Failed to load categories:', err);
       setCategories([]);
+      setIsCategoriesLoading(false);
     }
   };
 
@@ -392,6 +551,8 @@ function App() {
   const loadUserProfile = async (userId = null) => {
     const id = userId || (currentUser && currentUser.user_id);
     if (id) {
+      setIsProfileLoading(true);
+
       try {
         const response = await apiCall(`${API_BASE_URL}/profile/${id}`);
         if (response.ok) {
@@ -414,6 +575,8 @@ function App() {
         }
       } catch (err) {
         console.error('Failed to load profile:', err);
+      } finally {
+        setIsProfileLoading(false);
       }
     }
   };
@@ -656,100 +819,17 @@ function App() {
 
   return (
     <div className="app">
-      <header className="header">
-        <div className="header-content">
-          <div className="header-title" style={{cursor: 'pointer'}} onClick={() => setCurrentPage('home')}>
-            <Brain className="header-icon" size={40} />
-            <div>
-              <h1>Smart Voice Interviewer</h1>
-              <p className="subtitle">AI-Powered Interview System</p>
-            </div>
-          </div>
-          <div className="header-actions">
-            <button 
-              className="btn btn-secondary btn-small"
-              onClick={() => setCurrentPage('home')}
-              style={{marginRight: '1rem'}}
-            >
-              <Home size={18} />
-              Home
-            </button>
-            {userProfile && (
-              <>
-                <div className="streak-badge" title={`${userProfile.current_streak || 0} day streak!`}>
-                  <Flame size={18} className={userProfile.current_streak > 0 ? 'flame-active' : ''} />
-                  <span>{userProfile.current_streak || 0}</span>
-                </div>
-                <button 
-                  className="icon-button"
-                  onClick={() => setShowHistory(true)}
-                  title="Interview History"
-                >
-                  <History size={24} />
-                </button>
-                <button 
-                  className="icon-button"
-                  onClick={() => setShowAchievements(true)}
-                  title="Achievements"
-                >
-                  <Trophy size={24} />
-                  {userProfile.achievements && userProfile.achievements.length > 0 && (
-                    <span className="badge-count">{userProfile.achievements.length}</span>
-                  )}
-                </button>
-              </>
-            )}
-            {isAuthenticated ? (
-              <>
-                <button 
-                  className="profile-button"
-                  onClick={() => setShowProfile(true)}
-                  title="User Profile"
-                >
-                  {userProfile ? (
-                    <span className="profile-avatar">{userProfile.name.charAt(0).toUpperCase()}</span>
-                  ) : (
-                    <User size={20} />
-                  )}
-                </button>
-                <button 
-                  className="logout-button"
-                  onClick={handleLogout}
-                  title="Logout"
-                >
-                  <LogOut size={20} />
-                </button>
-              </>
-            ) : (
-              <button 
-                className="btn btn-primary btn-small"
-                onClick={() => setShowAuth(true)}
-              >
-                <LogIn size={18} />
-                Login
-              </button>
-            )}
-            <div className={`api-status status-${apiStatus}`}>
-              {apiStatus === 'connected' ? (
-                <>
-                  <Wifi size={18} />
-                  <span>Connected</span>
-                </>
-              ) : apiStatus === 'offline' ? (
-                <>
-                  <WifiOff size={18} />
-                  <span>Offline</span>
-                </>
-              ) : (
-                <>
-                  <Loader2 size={18} className="spin" />
-                  <span>Checking...</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppNavbar
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        isAuthenticated={isAuthenticated}
+        userProfile={userProfile}
+        setShowHistory={setShowHistory}
+        setShowAchievements={setShowAchievements}
+        setShowProfile={setShowProfile}
+        handleLogout={handleLogout}
+        setShowAuth={setShowAuth}
+      />
 
       <main className="main">
         {error && (
@@ -759,236 +839,93 @@ function App() {
           </div>
         )}
 
-        {/* Home Page - Traditional landing */}
+        {currentPage === 'magique' && !sessionId && !results && (
+          <MagiquePage
+            isAuthenticated={isAuthenticated}
+            setCurrentPage={setCurrentPage}
+            setShowAuth={setShowAuth}
+          />
+        )}
+
         {currentPage === 'home' && !sessionId && !results && (
-          <div className="home-page">
-            {/* Hero Section */}
-            <section className="home-hero">
-              <div className="home-hero-content">
-                <div className="hero-badge">
-                  <Sparkles size={16} />
-                  <span>AI-Powered Interview Platform</span>
-                </div>
-                <h1 className="home-hero-title">Master Your Interview Skills with AI</h1>
-                <p className="home-hero-subtitle">
-                  Practice with intelligent mock interviews, receive instant feedback, 
-                  and track your progress to ace your next job interview.
-                </p>
-                <div className="home-hero-cta">
-                  {isAuthenticated ? (
-                    <>
-                      <button 
-                        className="btn btn-primary btn-large"
-                        onClick={() => setCurrentPage('dashboard')}
-                      >
-                        <Target size={20} />
-                        Go to Dashboard
-                      </button>
-                      <button 
-                        className="btn btn-secondary btn-large"
-                        onClick={() => {
-                          setCurrentPage('interview');
-                          setShowDashboard(false);
-                        }}
-                      >
-                        <Play size={20} />
-                        Start Interview
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button 
-                        className="btn btn-primary btn-large"
-                        onClick={() => setShowAuth(true)}
-                      >
-                        <Rocket size={20} />
-                        Get Started Free
-                      </button>
-                      <button className="btn btn-secondary btn-large">
-                        <Play size={20} />
-                        Watch Demo
-                      </button>
-                    </>
-                  )}
-                </div>
-                {isAuthenticated && userProfile && (
-                  <div className="home-user-stats">
-                    <div className="user-stat-item">
-                      <Target size={18} />
-                      <span>{userProfile.interview_count || 0} Interviews</span>
-                    </div>
-                    <div className="user-stat-item">
-                      <TrendingUp size={18} />
-                      <span>{userProfile.interview_count && userProfile.total_score 
-                        ? `${(userProfile.total_score / userProfile.interview_count).toFixed(1)}%` 
-                        : '0%'} Average</span>
-                    </div>
-                    <div className="user-stat-item">
-                      <Flame size={18} />
-                      <span>{userProfile.current_streak || 0} Day Streak</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="home-hero-visual">
-                <div className="hero-visual-card">
-                  <Brain size={120} />
-                  <div className="visual-stats">
-                    <div className="visual-stat">
-                      <CheckCircle2 size={24} />
-                      <span>95% Success Rate</span>
-                    </div>
-                    <div className="visual-stat">
-                      <Users size={24} />
-                      <span>1000+ Users</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
+          <HomePage
+            isAuthenticated={isAuthenticated}
+            userProfile={userProfile}
+            setCurrentPage={setCurrentPage}
+            setShowDashboard={setShowDashboard}
+            setShowAuth={setShowAuth}
+          />
+        )}
 
-            {/* Features Section */}
-            <section className="home-section">
-              <div className="section-header-center">
-                <h2>Why Choose Our Platform?</h2>
-                <p>Everything you need to succeed in your next interview</p>
-              </div>
-              <div className="home-features">
-                <div className="home-feature-card">
-                  <div className="feature-icon-large">
-                    <Brain size={40} />
-                  </div>
-                  <h3>AI-Powered Questions</h3>
-                  <p>Get intelligent, contextual questions tailored to your experience level and target role</p>
-                </div>
-                <div className="home-feature-card">
-                  <div className="feature-icon-large">
-                    <Mic size={40} />
-                  </div>
-                  <h3>Voice Recognition</h3>
-                  <p>Practice with realistic voice input and text-to-speech for authentic interview simulation</p>
-                </div>
-                <div className="home-feature-card">
-                  <div className="feature-icon-large">
-                    <TrendingUp size={40} />
-                  </div>
-                  <h3>Progress Tracking</h3>
-                  <p>Monitor improvement with detailed analytics, performance metrics, and trend analysis</p>
-                </div>
-                <div className="home-feature-card">
-                  <div className="feature-icon-large">
-                    <Lightbulb size={40} />
-                  </div>
-                  <h3>Instant Feedback</h3>
-                  <p>Receive immediate AI-generated feedback with personalized improvement recommendations</p>
-                </div>
-                <div className="home-feature-card">
-                  <div className="feature-icon-large">
-                    <Award size={40} />
-                  </div>
-                  <h3>Achievement System</h3>
-                  <p>Unlock badges, maintain streaks, and stay motivated throughout your learning journey</p>
-                </div>
-                <div className="home-feature-card">
-                  <div className="feature-icon-large">
-                    <BookOpen size={40} />
-                  </div>
-                  <h3>50+ Categories</h3>
-                  <p>Practice across diverse topics from programming to system design and behavioral questions</p>
-                </div>
-              </div>
-            </section>
+        {FOOTER_PAGES[currentPage] && !sessionId && !results && (
+          <ResourcePage
+            section={FOOTER_PAGES[currentPage].section}
+            title={FOOTER_PAGES[currentPage].title}
+            description={FOOTER_PAGES[currentPage].description}
+            highlights={FOOTER_PAGES[currentPage].highlights}
+            isProtected={FOOTER_PAGES[currentPage].requiresAuth}
+            isAuthenticated={isAuthenticated}
+            onPrimaryAction={() => {
+              if (FOOTER_PAGES[currentPage].requiresAuth && !isAuthenticated) {
+                setAuthMode('login');
+                setShowAuth(true);
+                return;
+              }
 
-            {/* How It Works */}
-            <section className="home-section home-how-it-works">
-              <div className="section-header-center">
-                <h2>How It Works</h2>
-                <p>Get started in three simple steps</p>
-              </div>
-              <div className="how-it-works-steps">
-                <div className="step-card">
-                  <div className="step-number">1</div>
-                  <div className="step-content">
-                    <h3>Choose Your Topic</h3>
-                    <p>Select from 50+ categories including programming, system design, behavioral, and more</p>
-                  </div>
-                </div>
-                <div className="step-arrow">
-                  <ArrowRight size={32} />
-                </div>
-                <div className="step-card">
-                  <div className="step-number">2</div>
-                  <div className="step-content">
-                    <h3>Practice Interview</h3>
-                    <p>Answer AI-generated questions using voice or text input in a realistic interview environment</p>
-                  </div>
-                </div>
-                <div className="step-arrow">
-                  <ArrowRight size={32} />
-                </div>
-                <div className="step-card">
-                  <div className="step-number">3</div>
-                  <div className="step-content">
-                    <h3>Get Feedback</h3>
-                    <p>Receive detailed feedback, performance scores, and personalized course recommendations</p>
-                  </div>
-                </div>
-              </div>
-            </section>
+              if (currentPage === 'mock-interviews') {
+                setCurrentPage('interview');
+                return;
+              }
 
-            {/* Stats Section */}
-            <section className="home-section home-stats">
-              <div className="stats-showcase">
-                <div className="stat-showcase-item">
-                  <h3>10,000+</h3>
-                  <p>Interviews Completed</p>
-                </div>
-                <div className="stat-showcase-item">
-                  <h3>95%</h3>
-                  <p>User Satisfaction</p>
-                </div>
-                <div className="stat-showcase-item">
-                  <h3>50+</h3>
-                  <p>Question Categories</p>
-                </div>
-                <div className="stat-showcase-item">
-                  <h3>1000+</h3>
-                  <p>Active Users</p>
-                </div>
-              </div>
-            </section>
+              if (currentPage === 'progress-dashboard') {
+                setCurrentPage('dashboard');
+                return;
+              }
 
-            {/* CTA Section */}
-            <section className="home-section home-cta">
-              <div className="cta-content">
-                <h2>Ready to Ace Your Next Interview?</h2>
-                <p>Join thousands of successful candidates who improved their interview skills with our AI platform</p>
-                {isAuthenticated ? (
-                  <button 
-                    className="btn btn-primary btn-large"
-                    onClick={() => setCurrentPage('dashboard')}
-                  >
-                    <Target size={20} />
-                    Go to Dashboard
-                  </button>
-                ) : (
-                  <button 
-                    className="btn btn-primary btn-large"
-                    onClick={() => setShowAuth(true)}
-                  >
-                    <Rocket size={20} />
-                    Start Free Trial
-                  </button>
-                )}
-              </div>
-            </section>
-          </div>
+              if (currentPage === 'achievement-paths') {
+                setShowAchievements(true);
+                return;
+              }
+            }}
+            onBackHome={() => setCurrentPage('home')}
+          />
         )}
 
         {/* Dashboard - Show when user navigates to dashboard */}
         {currentPage === 'dashboard' && !sessionId && !results && (
           <>
             {/* Dashboard for logged-in users */}
+            {isAuthenticated && isProfileLoading && !userProfile && (
+              <div className="dashboard dashboard-skeleton">
+                <div className="dashboard-welcome skeleton-card">
+                  <div className="welcome-content">
+                    <div className="skeleton skeleton-line skeleton-line-title" />
+                    <div className="skeleton skeleton-line skeleton-line-subtitle" />
+                  </div>
+                  <div className="skeleton skeleton-btn" />
+                </div>
+
+                <div className="stats-grid">
+                  {[1, 2, 3, 4].map((item) => (
+                    <div key={item} className="stat-card stat-card-skeleton">
+                      <div className="skeleton skeleton-circle" />
+                      <div className="skeleton skeleton-line" />
+                      <div className="skeleton skeleton-line skeleton-line-short" />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="dashboard-section skeleton-card">
+                  <div className="skeleton skeleton-line skeleton-line-title" />
+                  <div className="skeleton-list">
+                    {[1, 2, 3].map((item) => (
+                      <div key={item} className="skeleton skeleton-row" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {isAuthenticated && userProfile && (
               <div className="dashboard">
                 {/* Welcome Section */}
@@ -1260,8 +1197,9 @@ function App() {
                   value={selectedTopic}
                   onChange={(e) => setSelectedTopic(e.target.value)}
                   className="select"
+                  disabled={isCategoriesLoading}
                 >
-                  <option value="">-- Choose a topic --</option>
+                  <option value="">{isCategoriesLoading ? 'Loading topics...' : '-- Choose a topic --'}</option>
                   {categories.map((cat) => (
                     <option key={cat.name} value={cat.name}>
                       {cat.name}
@@ -1311,12 +1249,21 @@ function App() {
                 <h3>Available Categories</h3>
               </div>
               <div className="categories-grid">
-                {categories.slice(0, 8).map((cat) => (
-                  <div key={cat.name} className="category-item">
-                    <Target size={16} className="category-icon" />
-                    <span>{cat.name}</span>
-                  </div>
-                ))}
+                {isCategoriesLoading ? (
+                  Array.from({ length: 8 }).map((_, idx) => (
+                    <div key={idx} className="category-item category-item-skeleton">
+                      <div className="skeleton skeleton-chip" />
+                      <div className="skeleton skeleton-line" />
+                    </div>
+                  ))
+                ) : (
+                  categories.slice(0, 8).map((cat) => (
+                    <div key={cat.name} className="category-item">
+                      <Target size={16} className="category-icon" />
+                      <span>{cat.name}</span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -1987,10 +1934,12 @@ function App() {
         </div>
       )}
 
-      <footer className="footer">
-        <Brain size={18} />
-        <p>Powered by Sentence-BERT AI | Smart Voice Interviewer v1.0</p>
-      </footer>
+      <AppFooter
+        isAuthenticated={isAuthenticated}
+        setCurrentPage={setCurrentPage}
+        setShowAuth={setShowAuth}
+        onFooterNavigate={navigateFooterPage}
+      />
     </div>
   );
 }
