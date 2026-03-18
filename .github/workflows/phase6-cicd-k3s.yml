@@ -154,7 +154,7 @@ jobs:
 
           # Keep backend rollout safe for low-capacity clusters.
           kubectl -n "${NS}" patch deployment backend --type merge \
-            -p '{"spec":{"strategy":{"type":"RollingUpdate","rollingUpdate":{"maxSurge":"0","maxUnavailable":"1"}}}}' || true
+            -p '{"spec":{"strategy":{"type":"RollingUpdate","rollingUpdate":{"maxSurge":0,"maxUnavailable":1}}}}' || true
 
           kubectl -n "${NS}" set image deployment/backend backend="${DOCKERHUB_USERNAME}/svi-backend:${RELEASE_SHA}"
           kubectl -n "${NS}" set image deployment/frontend frontend="${DOCKERHUB_USERNAME}/svi-frontend:${RELEASE_SHA}"
