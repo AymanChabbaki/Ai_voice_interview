@@ -1267,6 +1267,7 @@ docker-compose up -d
 | **[backend/tests/README.md](backend/tests/README.md)** | Detailed testing documentation |
 | **[docs/API.md](docs/API.md)** | Complete API reference |
 | **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)** | End-user guide |
+| **[docs/AZURE_TERRAFORM_ANSIBLE_K8S.md](docs/AZURE_TERRAFORM_ANSIBLE_K8S.md)** | Azure Kubernetes provisioning with Terraform + Ansible |
 | **[Names_Role.md](Names_Role.md)** | Team roles & responsibilities |
 
 ### Quick Links

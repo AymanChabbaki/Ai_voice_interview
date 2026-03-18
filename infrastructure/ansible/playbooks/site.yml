@@ -1,0 +1,392 @@
+---
+- name: Prepare all nodes for Kubernetes
+  hosts: k8s_cluster
+  become: true
+  vars:
+    kubernetes_major_minor: "v1.29"
+  tasks:
+    - name: Install base packages
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gpg
+          - software-properties-common
+          - containerd
+        update_cache: true
+        state: present
+
+    - name: Disable swap at runtime
+      ansible.builtin.command: swapoff -a
+      changed_when: false
+
+    - name: Disable swap in fstab
+      ansible.builtin.replace:
+        path: /etc/fstab
+        regexp: '^([^#].*\\sswap\\s+.*)$'
+        replace: '# \\1'
+
+    - name: Ensure required kernel modules are configured
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/k8s.conf
+        mode: "0644"
+        content: |
+          overlay
+          br_netfilter
+
+    - name: Load overlay kernel module
+      ansible.builtin.command: modprobe overlay
+      changed_when: false
+
+    - name: Load br_netfilter kernel module
+      ansible.builtin.command: modprobe br_netfilter
+      changed_when: false
+
+    - name: Configure sysctl settings for Kubernetes networking
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/k8s.conf
+        mode: "0644"
+        content: |
+          net.bridge.bridge-nf-call-iptables = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.ipv4.ip_forward = 1
+
+    - name: Apply sysctl settings
+      ansible.builtin.command: sysctl --system
+      changed_when: false
+
+    - name: Check if containerd config exists
+      ansible.builtin.stat:
+        path: /etc/containerd/config.toml
+      register: containerd_config
+
+    - name: Generate default containerd config
+      ansible.builtin.command: containerd config default
+      register: generated_containerd_config
+      when: not containerd_config.stat.exists
+      changed_when: true
+
+    - name: Create containerd config directory
+      ansible.builtin.file:
+        path: /etc/containerd
+        state: directory
+        mode: "0755"
+
+    - name: Write containerd config file
+      ansible.builtin.copy:
+        dest: /etc/containerd/config.toml
+        mode: "0644"
+        content: "{{ generated_containerd_config.stdout }}"
+      when: not containerd_config.stat.exists
+
+    - name: Use systemd cgroup driver for containerd
+      ansible.builtin.replace:
+        path: /etc/containerd/config.toml
+        regexp: 'SystemdCgroup = false'
+        replace: 'SystemdCgroup = true'
+
+    - name: Restart and enable containerd
+      ansible.builtin.systemd:
+        name: containerd
+        state: restarted
+        enabled: true
+
+    - name: Ensure apt keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Add Kubernetes apt signing key
+      ansible.builtin.get_url:
+        url: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_major_minor }}/deb/Release.key"
+        dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+        mode: "0644"
+
+    - name: Add Kubernetes apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc] https://pkgs.k8s.io/core:/stable:/{{ kubernetes_major_minor }}/deb/ /"
+        filename: kubernetes
+        state: present
+
+    - name: Install kubelet kubeadm and kubectl
+      ansible.builtin.apt:
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
+        update_cache: true
+        state: present
+
+    - name: Hold Kubernetes packages
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubelet
+        - kubeadm
+        - kubectl
+
+# ─────────────────────────────────────────────────────────
+- name: Initialize control plane on master
+  hosts: master
+  become: true
+  vars:
+    pod_network_cidr: "10.244.0.0/16"
+  tasks:
+    - name: Initialize Kubernetes control plane
+      ansible.builtin.command: >-
+        kubeadm init
+        --apiserver-advertise-address={{ private_ip | default(ansible_default_ipv4.address) }}
+        --pod-network-cidr={{ pod_network_cidr }}
+      args:
+        creates: /etc/kubernetes/admin.conf
+
+    - name: Create kube config directory for admin user
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/.kube"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
+    - name: Copy admin kubeconfig to user home
+      ansible.builtin.copy:
+        src: /etc/kubernetes/admin.conf
+        dest: "/home/{{ ansible_user }}/.kube/config"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0600"
+        remote_src: true
+
+    - name: Install Flannel CNI
+      ansible.builtin.command: >-
+        kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      changed_when: false
+
+    - name: Generate kubeadm join command
+      ansible.builtin.command: kubeadm token create --print-join-command
+      register: join_command_raw
+      changed_when: false
+
+    - name: Expose worker join command to other hosts
+      ansible.builtin.set_fact:
+        kube_join_command: "{{ join_command_raw.stdout }}"
+
+# ─────────────────────────────────────────────────────────
+- name: Join worker nodes to the cluster
+  hosts: workers
+  become: true
+  tasks:
+    - name: Join worker to control plane
+      ansible.builtin.command: "{{ hostvars[groups['master'][0]].kube_join_command }}"
+      args:
+        creates: /etc/kubernetes/kubelet.conf
+
+# ─────────────────────────────────────────────────────────
+- name: Configure workload placement and deploy application
+  hosts: master
+  become: true
+  vars:
+    k8s_tmp_dir: /tmp/ai-interview-k8s
+    app_secret_key: "CHANGE_ME_TO_A_STRONG_SECRET"
+    postgres_user: "interview_user"
+    postgres_password: "interview_password"
+    postgres_db: "interview_db"
+    app_public_host: "{{ ansible_host }}"
+    worker_01_ip: "{{ hostvars[groups['workers'][0]]['ansible_host'] }}"
+    worker_02_ip: "{{ hostvars[groups['workers'][1]]['ansible_host'] }}"
+  tasks:
+
+    - name: Install HAProxy
+      ansible.builtin.apt:
+        name: haproxy
+        update_cache: true
+        state: present
+
+    - name: Write HAProxy config directly
+      ansible.builtin.copy:
+        dest: /etc/haproxy/haproxy.cfg
+        mode: "0644"
+        content: |
+          global
+              log /dev/log local0
+              log /dev/log local1 notice
+              daemon
+
+          defaults
+              log global
+              mode http
+              option httplog
+              option dontlognull
+              timeout connect 5s
+              timeout client  50s
+              timeout server  120s
+
+          frontend http_front
+              bind *:80
+              acl is_api path_beg /api
+              use_backend backend_api if is_api
+              default_backend frontend_web
+
+          backend backend_api
+              balance roundrobin
+              http-request replace-path /api/(.*) /\1
+              server worker-01 {{ worker_01_ip }}:30800 check
+              server worker-02 {{ worker_02_ip }}:30800 check
+
+          backend frontend_web
+              balance roundrobin
+              server worker-01 {{ worker_01_ip }}:30080 check
+              server worker-02 {{ worker_02_ip }}:30080 check
+
+      notify: Restart HAProxy
+
+    - name: Ensure HAProxy is enabled and running
+      ansible.builtin.systemd:
+        name: haproxy
+        state: started
+        enabled: true
+
+    - name: Label workers for app workloads
+      ansible.builtin.command: >-
+        kubectl label node {{ hostvars[item]['ansible_hostname'] }}
+        node-role=worker --overwrite
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      loop: "{{ groups['workers'] }}"
+      changed_when: false
+
+    - name: Pin database workload to first worker node
+      ansible.builtin.command: >-
+        kubectl label node {{ hostvars[groups['workers'][0]]['ansible_hostname'] }}
+        workload=database --overwrite
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      changed_when: false
+
+    - name: Create PostgreSQL data directory on database worker
+      ansible.builtin.file:
+        path: /var/lib/postgresql-data
+        state: directory
+        mode: "0777"
+      delegate_to: "{{ groups['workers'][0] }}"
+
+    - name: Create temporary manifest directory
+      ansible.builtin.file:
+        path: "{{ k8s_tmp_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copy namespace manifest
+      ansible.builtin.copy:
+        src: ../../../k8s/namespace.yaml
+        dest: "{{ k8s_tmp_dir }}/namespace.yaml"
+        mode: "0644"
+
+    - name: Render secrets manifest for this environment
+      ansible.builtin.template:
+        src: ../templates/ai-interview-secrets.yaml.j2
+        dest: "{{ k8s_tmp_dir }}/secrets.yaml"
+        mode: "0644"
+
+    - name: Copy Azure-specific workload manifests
+      ansible.builtin.copy:
+        src: "../../../k8s/azure/{{ item }}"
+        dest: "{{ k8s_tmp_dir }}/{{ item }}"
+        mode: "0644"
+      loop:
+        - db-deployment.yaml
+        - backend-deployment.yaml
+        - frontend-deployment.yaml
+
+    - name: Apply namespace
+      ansible.builtin.command: >-
+        kubectl apply -f {{ k8s_tmp_dir }}/namespace.yaml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      changed_when: false
+
+    - name: Apply secrets
+      ansible.builtin.command: >-
+        kubectl apply -f {{ k8s_tmp_dir }}/secrets.yaml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      changed_when: false
+
+    - name: Deploy PostgreSQL
+      ansible.builtin.command: >-
+        kubectl apply -f {{ k8s_tmp_dir }}/db-deployment.yaml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      changed_when: false
+
+    - name: Wait for PostgreSQL to be ready
+      ansible.builtin.command: >-
+        kubectl rollout status deployment/postgres
+        -n ai-interview --timeout=120s
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      changed_when: false
+
+    - name: Deploy backend
+      ansible.builtin.command: >-
+        kubectl apply -f {{ k8s_tmp_dir }}/backend-deployment.yaml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      changed_when: false
+
+    - name: Deploy frontend
+      ansible.builtin.command: >-
+        kubectl apply -f {{ k8s_tmp_dir }}/frontend-deployment.yaml
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      changed_when: false
+
+    - name: Wait for backend to be ready
+      ansible.builtin.command: >-
+        kubectl rollout status deployment/backend
+        -n ai-interview --timeout=300s
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      changed_when: false
+
+    - name: Wait for frontend to be ready
+      ansible.builtin.command: >-
+        kubectl rollout status deployment/frontend
+        -n ai-interview --timeout=180s
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      changed_when: false
+
+    - name: Show deployment status
+      ansible.builtin.command: >-
+        kubectl get pods -n ai-interview -o wide
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      changed_when: false
+      register: pod_status
+
+    - name: Print pod status
+      ansible.builtin.debug:
+        msg: "{{ pod_status.stdout_lines }}"
+
+    - name: Print access URLs
+      ansible.builtin.debug:
+        msg:
+          - "========================================="
+          - "App deployed successfully!"
+          - "========================================="
+          - "Frontend: http://{{ app_public_host }}/"
+          - "Backend:  http://{{ app_public_host }}/api/"
+          - "API Docs: http://{{ app_public_host }}/api/docs"
+          - "========================================="
+
+  handlers:
+    - name: Restart HAProxy
+      ansible.builtin.systemd:
+        name: haproxy
+        state: restarted

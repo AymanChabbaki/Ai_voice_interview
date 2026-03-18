@@ -1,0 +1,30 @@
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    daemon
+
+defaults
+    log global
+    mode http
+    option httplog
+    option dontlognull
+    timeout connect 5s
+    timeout client  50s
+    timeout server  120s
+
+frontend http_front
+    bind *:80
+    acl is_api path_beg /api
+    use_backend backend_api if is_api
+    default_backend frontend_web
+
+backend backend_api
+    balance roundrobin
+    http-request replace-path /api/(.*) /\1
+    server worker-01 {{ hostvars[groups['workers'][0]]['ansible_host'] }}:30800 check
+    server worker-02 {{ hostvars[groups['workers'][1]]['ansible_host'] }}:30800 check
+
+backend frontend_web
+    balance roundrobin
+    server worker-01 {{ hostvars[groups['workers'][0]]['ansible_host'] }}:30080 check
+    server worker-02 {{ hostvars[groups['workers'][1]]['ansible_host'] }}:30080 check

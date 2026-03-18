@@ -1,0 +1,13 @@
+subscription_id    = "00000000-0000-0000-0000-000000000000"
+location           = "westeurope"
+resource_group_name = "rg-ai-interview-k8s"
+prefix             = "aiiv"
+admin_username     = "azureuser"
+ssh_public_key_path = "~/.ssh/id_rsa.pub"
+
+master_vm_size     = "Standard_B2s"
+worker_vm_size     = "Standard_B2s"
+worker_count       = 2
+
+# Restrict this in production to your public IP, e.g. "X.X.X.X/32"
+admin_allowed_cidr = "0.0.0.0/0"
