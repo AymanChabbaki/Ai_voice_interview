@@ -981,6 +981,8 @@ function App() {
                     </div>
                   </div>
 
+
+
                   <div className="stat-card">
                     <div className="stat-icon-wrapper" style={{background: 'rgba(139, 92, 246, 0.15)'}}>
                       <Trophy size={24} style={{color: '#8b5cf6'}} />
